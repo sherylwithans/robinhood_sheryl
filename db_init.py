@@ -228,7 +228,7 @@ def getColumns(table):
 #### get data
 
 def getData(table,rows={},column='*',start_date='',end_date='',extended_hours=False):
-    has_datetime = table.__tablename__ in ['equities','portfolio']
+    has_datetime = table.__tablename__ in ['equities','portfolio','portfolio_summary']
     
     query = f" SELECT {column} FROM {table.__tablename__} WHERE TRUE "
 
@@ -257,6 +257,29 @@ def getData(table,rows={},column='*',start_date='',end_date='',extended_hours=Fa
         return False
 
 
+#### get latest row data
+
+def getLatestRowData(table,value,key='ticker'):
+    return executeQuery(f"SELECT * FROM {table.__tablename__} WHERE {key} = '{value}' AND datetime = (SELECT MAX(datetime) FROM {table.__tablename__} WHERE {key} = '{value}')")
+
+
+#### get latest data
+
+
+def getLatestData(table,key='ticker'):
+    return executeQuery(f"SELECT * FROM {table.__tablename__} WHERE {key} NOT LIKE '^%%' AND (datetime,{key}) IN (SELECT MAX(datetime),{key} FROM {table.__tablename__} GROUP BY {key})")
+
+
+#### get latest data with name
+
+def getLatestDataNamed(table):
+    return executeQuery(f"""
+            SELECT t1.*, t2.name FROM
+            (SELECT * FROM {table.__tablename__}
+            WHERE (datetime,ticker) IN (SELECT MAX(datetime),ticker FROM {table.__tablename__} GROUP BY ticker)) t1
+            JOIN (select distinct ticker, name from tickers) t2
+            ON t1.ticker = t2.ticker
+        """)
 
 #### write data
 
