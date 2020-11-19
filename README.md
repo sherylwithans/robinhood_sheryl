@@ -15,7 +15,7 @@ pip install robin_stocks
 pip install jupyter_dash
 pip install plotly
 pip install dash
-pip install yahoo_fin
+pip install yfinance
 pip install requests
 ```
 
