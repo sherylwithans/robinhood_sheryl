@@ -7,8 +7,16 @@ robinhood_sheryl is a dashboard that provides a comprehensive overview of an inv
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install sqlalchemy for database import and robin_stocks for robinhood api.
 
 ```bash
+# db installs
 pip install sqlalchemy
 pip install robin_stocks
+
+# analytics installs
+pip install jupyter_dash
+pip install plotly
+pip install dash
+pip install yahoo_fin
+pip install requests
 ```
 
 ## Usage
