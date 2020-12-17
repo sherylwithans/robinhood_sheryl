@@ -11,3 +11,4 @@ robinhood_sheryl/secrets/
 robinhood_sheryl/secrets.py
 prod_dump*.sql
 *.ipynb
+.*~
