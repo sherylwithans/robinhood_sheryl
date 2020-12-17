@@ -1,3 +1,13 @@
-sheryl/
-startup_parameters.json
-login.py
+airflow/
+big_query/
+cloud_sql/
+cloud_vm/
+templates/
+venv/
+.ipynb_checkpoints/
+__pycache__/
+.idea/
+robinhood_sheryl/secrets/
+robinhood_sheryl/secrets.py
+prod_dump*.sql
+*.ipynb

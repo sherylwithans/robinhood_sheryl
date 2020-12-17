@@ -1,0 +1,34 @@
+# google-cloud-bigquery
+google-cloud-storage
+# google-cloud-bigquery-storage
+google-cloud-secret-manager
+
+# cloud sql instance turn on/off
+google-api-python-client
+google-auth-httplib2
+google-auth
+oauth2client
+
+# pyarrow
+pandas
+numpy==1.19.3
+bs4
+yfinance
+
+SQLAlchemy==1.3.20
+pg8000==1.16.5 # Do not upgrade >=1.6.6 until https://github.com/tlocke/pg8000/commit/3a2e7439ae3613367ec231218d7e0f541466d1e5#commitcomment-43174891 is resolved
+
+# robinhood imports
+robin_stocks
+pyotp
+
+# technical analysis imports
+TA-Lib # require manual install of TA-Lib library from http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
+plotly
+pendulum
+
+
+# dash app imports
+dash
+dash_bootstrap_components
+
