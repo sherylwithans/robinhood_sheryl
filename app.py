@@ -626,7 +626,5 @@ def update_styles(rows,derived_virtual_selected_rows):
 
 
 if __name__ == '__main__':
-#    holdings_df = rs_calc_agg_portfolio()
-#    pa_df = pd.concat([holdings_df,holdings_df['ticker'].apply(lambda x: yf_backtest_wrapper(x))],axis=1)
     app.run_server(debug=True,port=8050)
 
