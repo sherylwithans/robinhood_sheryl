@@ -9,6 +9,8 @@ import dash_table.FormatTemplate as FormatTemplate
 from dash_table.Format import Format, Sign
 import dash_bootstrap_components as dbc
 
+from robinhood_sheryl.robinhood_sheryl import *
+
 external_stylesheets = [dbc.themes.BOOTSTRAP]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
