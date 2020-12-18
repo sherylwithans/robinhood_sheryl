@@ -1,6 +1,6 @@
 # robinhood_sheryl
 
-robinhood_sheryl is a dashboard that provides a comprehensive overview of an investor's portfolio holdings extracted from the robinhood api. It also incorporates investment suggestions based on simple statistics such as exponential moving averages and momentum indicators. Options analytics function in progress.
+robinhood_sheryl is a dashboard that provides a comprehensive overview of an investor's portfolio holdings extracted from the robinhood api. It also incorporates investment suggestions based on simple statistics such as exponential moving averages and momentum indicators. Data is stored in postgres on google cloud instance, with updates in 5-min intervals scheduled in Airflow. Options analytics function in progress.
 
 ## Installation
 
