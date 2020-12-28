@@ -55,6 +55,9 @@ def yf_get_prev_close_price(ticker):
     else:
         df = getData(equitiesTable,{'ticker':ticker},start_date=yesterday+' 15:59',
                  end_date=yesterday+' 16:00',extended_hours=True)
+    # if no data or stock market closed early, get last price within normal hours
+    if df.empty:
+        df = getData(equitiesTable, {'ticker': ticker}, start_date=yesterday, extended_hours=False)
     df = df['close'].resample('B').last()
     prev_close_price =  df.loc[yesterday]
     return prev_close_price
