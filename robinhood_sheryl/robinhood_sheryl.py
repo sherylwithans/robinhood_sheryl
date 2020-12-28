@@ -12,10 +12,15 @@ from talib import BBANDS
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+
 # import sqlite3
 # from sqlite3 import Error
 
 from robinhood_sheryl.rs_db import *
+
+from pandas.tseries.holiday import USFederalHolidayCalendar
+from pandas.tseries.offsets import CustomBusinessDay
+US_BUSINESS_DAY = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
 logging.disable(level=logging.INFO)
 # token = login()
@@ -40,7 +45,7 @@ def ws_get_nasdaq_futures_info(info=None):
     return d[info] if info else d
 
 def yf_get_prev_close_price(ticker):
-    yesterday = (datetime.today()-BDay(1)).strftime('%Y-%m-%d')
+    yesterday = (datetime.today()-US_BUSINESS_DAY).strftime('%Y-%m-%d')
     if ticker in ['^N225']:
         df = getData(equitiesTable,{'ticker':ticker},start_date=yesterday+' 14:55',
                  end_date=yesterday+' 15:00',extended_hours=True, timezone='JST')
@@ -79,7 +84,8 @@ def convert_period(period):
     num = int(num) if num else 0
     period = period_dict[period_type]
     days = num*period
-    period_start_date = datetime.today()-BDay(days)
+    # period_start_date = datetime.today()-BDay(days)
+    period_start_date = datetime.today() - US_BUSINESS_DAY*days
 #     period_start_date = period_start_date.replace(tzinfo=pytz.timezone('US/Eastern'))
     return period_start_date
 
@@ -108,7 +114,8 @@ def yf_get_moving_average(ticker,interval='1d',period='3mo',price_type='close',w
         ticker = INDEXES[ticker]
     period_start_date = convert_period(period)
     interval_days = convert_interval(interval,max(windows+[200]))
-    start_date = period_start_date-BDay(interval_days)
+    # start_date = period_start_date-BDay(interval_days)
+    start_date = period_start_date - US_BUSINESS_DAY*interval_days
     resample_interval = interval.replace('m','Min').replace('d','B')
     df = getData(equitiesTable,{'ticker':ticker},start_date=start_date,extended_hours=extended_hours)
 
