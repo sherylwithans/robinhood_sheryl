@@ -44,22 +44,30 @@ def ws_get_nasdaq_futures_info(info=None):
 
     return d[info] if info else d
 
+
 def yf_get_prev_close_price(ticker):
-    yesterday = (datetime.today()-US_BUSINESS_DAY).strftime('%Y-%m-%d')
+    yesterday = (datetime.today() - US_BUSINESS_DAY).strftime('%Y-%m-%d')
     if ticker in ['^N225']:
-        df = getData(equitiesTable,{'ticker':ticker},start_date=yesterday+' 14:55',
-                 end_date=yesterday+' 15:00',extended_hours=True, timezone='JST')
+        timezone = 'JST'
+        start_time = ' 14:55'
+        end_time = ' 15:00'
     elif ticker in ['^FTSE']:
-        df = getData(equitiesTable,{'ticker':ticker},start_date=yesterday+' 16:25 ',
-                 end_date=yesterday+' 16:30 ',extended_hours=True, timezone='WET')
+        timezone = 'WET'
+        start_time = ' 16:25'
+        end_time = ' 16:30'
     else:
-        df = getData(equitiesTable,{'ticker':ticker},start_date=yesterday+' 15:59',
-                 end_date=yesterday+' 16:00',extended_hours=True)
-    # if no data or stock market closed early, get last price within normal hours
+        timezone = 'US/Eastern'
+        start_time = ' 15:59'
+        end_time = ' 16:00'
+
+    df = getData(equitiesTable, {'ticker': ticker}, start_date=yesterday + start_time,
+                 end_date=yesterday + end_time, extended_hours=True, timezone=timezone)
+
     if df.empty:
-        df = getData(equitiesTable, {'ticker': ticker}, start_date=yesterday, extended_hours=False)
+        df = getData(equitiesTable, {'ticker': ticker}, start_date=yesterday + ' 09:30',
+                     end_date=yesterday + end_time, extended_hours=False, timezone=timezone)
     df = df['close'].resample('B').last()
-    prev_close_price =  df.loc[yesterday]
+    prev_close_price = df.loc[yesterday]
     return prev_close_price
 
 def yf_get_latest_price(ticker):

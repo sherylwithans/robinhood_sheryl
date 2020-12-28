@@ -364,7 +364,7 @@ def format_content():
             format_graphs('graph_1'),
             width=11),
         dbc.Col([
-            dbc.Row(format_radio_buttons('radio_1',{'1mo':'1 month','5d': '1 week', '1d':'1 day'}),
+            dbc.Row(format_radio_buttons('radio_1',{'3mo':'3 months','1mo':'1 month','5d': '1 week', '1d':'1 day'}),
 #             width=1,
                 align='center'),
             dbc.Row(format_radio_buttons('radio_2',
