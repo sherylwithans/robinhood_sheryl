@@ -10,13 +10,15 @@ import pyotp
 from datetime import datetime
 
 # from robinhood_sheryl.secrets import *
-from google.cloud import storage
+# from google.cloud import storage
+#
+# storage_client = storage.Client()
+# bucket = storage_client.get_bucket('quantwannadb')
+# blob_pickle_path='.tokens/robinhood.pickle'
+# blob = bucket.blob(blob_pickle_path)
+# blob_pickle = blob.download_as_string()
 
-storage_client = storage.Client()
-bucket = storage_client.get_bucket('quantwannadb')
-blob_pickle_path='.tokens/robinhood.pickle'
-blob = bucket.blob(blob_pickle_path)
-blob_pickle = blob.download_as_string()
+pickle_path='.tokens/robinhood.pickle'
 
 
 def generate_device_token():
@@ -125,17 +127,18 @@ def login():
         payload['mfa_code'] = mfa_code
 
     # If authentication has been stored in pickle file then load it. Stops login server from being pinged so much.
-    # if os.path.isfile(pickle_path):
-    if blob_pickle_path:
+    if os.path.isfile(pickle_path):
+    # if blob_pickle_path:
         # If store_session has been set to false then delete the pickle file, otherwise try to load it.
         # Loading pickle file will fail if the acess_token has expired.
         if store_session:
             try:
-                # with open(pickle_path, 'rb') as f:
-                if blob_pickle_path:
-                    # pickle_data = pickle.load(f)
-                    pickle_data = pickle.loads(blob_pickle)
-                    print('loaded blob_pickle')
+                with open(pickle_path, 'rb') as f:
+                # if blob_pickle_path:
+                    pickle_data = pickle.load(f)
+                    print('loaded pickle')
+                    # pickle_data = pickle.loads(blob_pickle)
+                    # print('loaded blob_pickle')
                     access_token = pickle_data['access_token']
                     token_type = pickle_data['token_type']
                     refresh_token = pickle_data['refresh_token']
@@ -214,12 +217,12 @@ def login():
                                  'access_token': data['access_token'],
                                  'refresh_token': data['refresh_token'],
                                  'device_token': device_token}, f)
-                blob = bucket.blob(blob_pickle_path)
-                print(f'upload blob from {pickle_path} to {blob_pickle_path}')
-                with open(pickle_path, 'rb') as f:
-                    new_pickle = f.read()
-                blob.upload_from_string(new_pickle)
-                # blob.upload_from_filename(pickle_path)
+                print(f'updated pickle in {pickle_path}')
+                # blob = bucket.blob(blob_pickle_path)
+                # print(f'upload blob from {pickle_path} to {blob_pickle_path}')
+                # with open(pickle_path, 'rb') as f:
+                #     new_pickle = f.read()
+                # blob.upload_from_string(new_pickle)
         else:
             raise Exception(data['detail'])
     else:
@@ -227,11 +230,11 @@ def login():
     return data
 
 if __name__ == "__main__":
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket('quantwannadb')
-    blob_pickle_path = '.tokens/robinhood.pickle'
-    blob = bucket.blob(blob_pickle_path)
-    blob_pickle = blob.download_as_string()
-    print(blob_pickle)
+    # storage_client = storage.Client()
+    # bucket = storage_client.get_bucket('quantwannadb')
+    # blob_pickle_path = '.tokens/robinhood.pickle'
+    # blob = bucket.blob(blob_pickle_path)
+    # blob_pickle = blob.download_as_string()
+    # print(blob_pickle)
     # blob.upload_from_filename("C:/Users/shery/.tokens/robinhood.pickle")
     login()
