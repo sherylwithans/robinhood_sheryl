@@ -31,7 +31,7 @@ pendulum
 
 # dash app imports
 dash
-dash_bootstrap_componentsi
+dash_bootstrap_components
 
 # heroku app imports
 gunicorn
