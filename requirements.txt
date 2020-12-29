@@ -23,7 +23,8 @@ robin_stocks
 pyotp
 
 # technical analysis imports
-TA-Lib # require manual install of TA-Lib library from http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
+# TA-Lib # require manual install of TA-Lib library from http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
+# skipped using heroku buildpack numrut/ta-lib
 plotly
 pendulum
 
