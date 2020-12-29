@@ -22,7 +22,7 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay
 US_BUSINESS_DAY = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
-logging.disable(level=logging.INFO)
+# logging.disable(level=logging.INFO)
 # token = login()
 
 
