@@ -463,7 +463,11 @@ def insert_yf_data(tickers_list=None, catchup=False, print_details=False):
         print(f"\n==============\nCATCHUP: getting data for equities for catchup run from period 5d\n==============")
     for ticker in tickers_list:
         # get max datetime of last ticker scrape
-        start_time = getLatestRowData(equitiesTable, ticker)['datetime'].iloc[0]
+        hist_df = getLatestRowData(equitiesTable, ticker)
+        if hist_df.empty:
+            start_time = None
+        else:
+            start_time = hist_df['datetime'].iloc[0]
         if pd.isnull(start_time) or catchup is True:  # no prior data, first time catchup run
             start_date = ''
             if print_details:
