@@ -245,7 +245,7 @@ def executeQuery(query):
             df.columns = [c.decode() for c in df.columns]
         if not df.empty:
             if 'datetime' in df.columns:
-                df['datetime'] = pd.to_datetime(df['datetime'])
+                df['datetime'] = pd.to_datetime(df['datetime'],utc=True)
                 if df['datetime'].iloc[0].tzinfo is None:  # not tz aware, used in yf analysis functions
                     df['datetime'] = df['datetime'].dt.tz_localize('UTC').dt.tz_convert('US/Eastern')
                 else: # already tz aware, downloaded data from yf
