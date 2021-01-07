@@ -52,7 +52,7 @@ def init_tcp_connection_engine(db_config):
     db_user = os.environ["DB_USER"]
     db_name = os.environ["DB_NAME"]
     db_host = os.environ["DB_HOST"]
-    db_pass = os.environ["DB_PASS"]
+    db_pass = os.environ.get("DB_PASS")
 
     # Extract host and port from db_host
     host_args = db_host.split(":")
