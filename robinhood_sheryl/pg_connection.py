@@ -52,6 +52,7 @@ def init_tcp_connection_engine(db_config):
     db_user = os.environ["DB_USER"]
     db_name = os.environ["DB_NAME"]
     db_host = os.environ["DB_HOST"]
+    db_pass = os.environ["DB_PASS"]
 
     # Extract host and port from db_host
     host_args = db_host.split(":")
@@ -63,7 +64,7 @@ def init_tcp_connection_engine(db_config):
         sqlalchemy.engine.url.URL(
             drivername="postgresql+psycopg2",
             username=db_user,  # e.g. "my-database-user"
-            # password=db_pass,  # e.g. "my-database-password"
+            password=db_pass,  # e.g. "my-database-password"
             host=db_hostname,  # e.g. "127.0.0.1"
             port=db_port,  # e.g. 5432
             database=db_name  # e.g. "my-database-name"
