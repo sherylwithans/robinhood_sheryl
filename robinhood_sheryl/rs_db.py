@@ -245,7 +245,7 @@ def executeQuery(query):
             df.columns = [c.decode() for c in df.columns]
         if not df.empty:
             if 'datetime' in df.columns:
-                df['datetime'] = pd.to_datetime(df['datetime'],utc=True)
+                df['datetime'] = pd.to_datetime(df['datetime'], utc=True)
                 if df['datetime'].iloc[0].tzinfo is None:  # not tz aware, used in yf analysis functions
                     df['datetime'] = df['datetime'].dt.tz_localize('UTC').dt.tz_convert('US/Eastern')
                 else: # already tz aware, downloaded data from yf
@@ -266,14 +266,18 @@ def getColumns(table):
 
 #### get data
 
-def getData(table, rows={}, column='*', start_date='', end_date='',
-            extended_hours=False,market_hours=('09:30','15:59:59'), timezone='US/Eastern'):
+def getData(table, rows={}, column='*', tickers=[], start_date='', end_date='',
+            extended_hours=False, market_hours=('09:30', '15:59:59'), timezone='US/Eastern'):
     has_datetime = table.__tablename__ in ['equities', 'portfolio', 'portfolio_summary']
 
     query = f" SELECT {column} FROM {table.__tablename__} WHERE TRUE "
 
     for k in rows:
         query += f" AND {k} = '{rows[k]}' "
+
+    if tickers:
+        tickers_str = ",".join([f"'{x}'" for x in tickers])
+        query += f" AND ticker IN ({tickers_str}) "
 
     if has_datetime:
         if start_date:
