@@ -119,72 +119,76 @@ def convert_interval(interval,window):
     return days
 
 
-def yf_get_moving_average(ticker,interval='1d',period='3mo',price_type='close',windows=[20,50],
-                         signals={'sma':(20,50)},latest=False,extended_hours=False):
-    if ticker in INDEXES:
-        ticker = INDEXES[ticker]
+def yf_get_moving_average(ticker=None, interval='1d', period='3mo', price_type='close', windows=[20, 50],
+                          signals={'ema': (20, 50)}, latest=False, extended_hours=False, df=None):
     period_start_date = convert_period(period)
-    interval_days = convert_interval(interval,max(windows+[200]))
-    # start_date = period_start_date-BDay(interval_days)
-    start_date = period_start_date - US_BUSINESS_DAY*interval_days
-    resample_interval = interval.replace('m','Min').replace('d','B')
-    df = getData(equitiesTable,{'ticker':ticker},start_date=start_date,extended_hours=extended_hours)
 
+    if ticker:
+        interval_days = convert_interval(interval, max(windows + [200]))
+        start_date = period_start_date - BDay(interval_days)
+        if ticker in INDEXES:
+            ticker = INDEXES[ticker]
+        df = getData(equitiesTable, {'ticker': ticker}, start_date=start_date, extended_hours=extended_hours)
+
+    resample_interval = interval.replace('m', 'Min').replace('d', 'B')
     if 'h' in interval:
         # base=0.5
-        offset='0.5h'
+        offset = '0.5h'
     else:
         # base=0
-        offset='0s'
+        offset = '0s'
     # volume_agg = df['volume'].resample(resample_interval,base=base).sum()
     volume_agg = df['volume'].resample(resample_interval, offset=offset).sum()
     # df = df[['open', 'high', 'low', 'close', 'dividends', 'stock_splits']].resample(
     # resample_interval,base=base).last()
     df = df[['open', 'high', 'low', 'close', 'dividends', 'stock_splits']].resample(
         resample_interval, offset=offset).last()
+
     df['volume'] = volume_agg
     df = df.dropna()
     if df.empty:
         return df
-#     df_period = stock.history(interval=interval,period=period)
-#     df['volume'] = df['volume'].replace(to_replace=0, method='ffill')
-#     df['return'] = df[price_type].pct_change()
+    #     df_period = stock.history(interval=interval,period=period)
+    #     df['volume'] = df['volume'].replace(to_replace=0, method='ffill')
+    #     df['return'] = df[price_type].pct_change()
     for window in windows:
-#         df[f'pd_sma_{window}'] = df[price_type].rolling(window=window).mean()
-        df[f'sma_{window}'] = ta.SMA(df[price_type],window)
-        df[f'ema_{window}'] = ta.EMA(df[price_type],window)
-        df[f'vol_sma_{window}'] = ta.SMA(df['volume'],window)
+        #         df[f'pd_sma_{window}'] = df[price_type].rolling(window=window).mean()
+        df[f'sma_{window}'] = ta.SMA(df[price_type], window)
+        df[f'ema_{window}'] = ta.EMA(df[price_type], window)
+        df[f'vol_sma_{window}'] = ta.SMA(df['volume'], window)
 
         df[f'upperband_{window}'], df[f'middleband_{window}'], df[f'lowerband_{window}'] = BBANDS(df[price_type],
-                                                                timeperiod=window, nbdevup=2, nbdevdn=2, matype=0)
+                                                                                                  timeperiod=window,
+                                                                                                  nbdevup=2, nbdevdn=2,
+                                                                                                  matype=0)
 
-        df[f'max_{window}'] = df[price_type].rolling(window=window).max()==df[price_type]
-        df[f'min_{window}'] = df[price_type].rolling(window=window).min()==df[price_type]
+        df[f'max_{window}'] = df[price_type].rolling(window=window).max() == df[price_type]
+        df[f'min_{window}'] = df[price_type].rolling(window=window).min() == df[price_type]
 
     # 200 day moving average
-    df[f'ema_200'] = ta.EMA(df[price_type],200)
+    df[f'ema_200'] = ta.EMA(df[price_type], 200)
 
-    for s,(v1,v2) in signals.items():
-        df[f'{s}_signal_{v1}_{v2}'] = np.where(df[f'{s}_{v1}']>df[f'{s}_{v2}'],1,0)
+    for s, (v1, v2) in signals.items():
+        df[f'{s}_signal_{v1}_{v2}'] = np.where(df[f'{s}_{v1}'] > df[f'{s}_{v2}'], 1, 0)
         df[f'{s}_position_{v1}_{v2}'] = df[f'{s}_signal_{v1}_{v2}'].diff()
-        order_dict = {1:'buy',-1:'sell',0:np.nan}
+        order_dict = {1: 'buy', -1: 'sell', 0: np.nan}
         df[f'{s}_execute_order_{v1}_{v2}'] = df[f'{s}_position_{v1}_{v2}'].map(
             lambda x: order_dict[x], na_action='ignore').replace(to_replace=np.nan, method='ffill')
 
         df[f'{s}_execute_time_{v1}_{v2}'] = np.where(
-            df[f'{s}_position_{v1}_{v2}']!=0,df.index.tz_localize(None),np.datetime64('NaT'))
+            df[f'{s}_position_{v1}_{v2}'] != 0, df.index.tz_localize(None), np.datetime64('NaT'))
         df[f'{s}_execute_time_{v1}_{v2}'] = df[
             f'{s}_execute_time_{v1}_{v2}'].replace(to_replace=np.datetime64('NaT'), method='ffill')
 
         df[f'{s}_execute_price_{v1}_{v2}'] = np.where(
-            df[f'{s}_position_{v1}_{v2}']!=0,df[price_type],np.nan)
+            df[f'{s}_position_{v1}_{v2}'] != 0, df[price_type], np.nan)
         df[f'{s}_execute_price_{v1}_{v2}'] = df[
             f'{s}_execute_price_{v1}_{v2}'].replace(to_replace=np.nan, method='ffill')
 
     if df.index[0].tzinfo is None:
-        selected_df = df[df.index>=period_start_date]
+        selected_df = df[df.index >= period_start_date]
     else:
-        selected_df = df[df.index>=period_start_date.replace(tzinfo=pytz.timezone('US/Eastern'))]
+        selected_df = df[df.index >= period_start_date.replace(tzinfo=pytz.timezone('US/Eastern'))]
 
     if latest:
         latest_dt = df.index.max()
@@ -192,68 +196,108 @@ def yf_get_moving_average(ticker,interval='1d',period='3mo',price_type='close',w
     return selected_df
 
 
-def yf_backtest(ticker,interval='1d',period='3mo',price_type='close',
-                windows=[20,50],signals={'sma':(20,50)},long_only=False,results=False,extended_hours=False):
-
-    df = yf_get_moving_average(ticker,interval,period,price_type,windows,signals,latest=False,extended_hours=extended_hours)
+def yf_backtest(ticker=None, interval='1d', period='3mo', price_type='close',
+                windows=[20, 50], signals={'ema': (20, 50)}, long_only=False, results=False, extended_hours=False,
+                df=None):
+    if ticker:
+        df = yf_get_moving_average(ticker,
+                                   interval, period, price_type, windows, signals, latest=False,
+                                   extended_hours=extended_hours)
 
     if df.empty:
         return df
     cols = df.columns
     start_price = df[price_type][0]
-#     print(start_price)
-    df[f'hold_{period}_gain'] = df[price_type]-start_price
-    df[f'hold_{period}_return'] = df[f'hold_{period}_gain']/start_price
+    #     print(start_price)
+    df[f'hold_{period}_gain'] = df[price_type] - start_price
+    df[f'hold_{period}_return'] = df[f'hold_{period}_gain'] / start_price
 
-    for s,(v1,v2) in signals.items():
+    for s, (v1, v2) in signals.items():
         df[f'{s}_ls_num_shares_outstanding_{v1}_{v2}'] = df[f'{s}_position_{v1}_{v2}'].cumsum()
 
         # start from first long
         start_long_idx = df[f'{s}_position_{v1}_{v2}'].gt(0).idxmax()
-#         check if any long over time period
-        if df[f'{s}_position_{v1}_{v2}'].loc[start_long_idx]==0:
+        #         check if any long over time period
+        if df[f'{s}_position_{v1}_{v2}'].loc[start_long_idx] == 0:
             start_long_idx = None
             l_start_price = 0
         else:
             l_start_price = df.loc[start_long_idx][price_type]
         if long_only:
             df[f'{s}_l_position_{v1}_{v2}'] = np.where(
-                df[f'{s}_position_{v1}_{v2}']>=0,df[f'{s}_position_{v1}_{v2}'],0)
+                df[f'{s}_position_{v1}_{v2}'] >= 0, df[f'{s}_position_{v1}_{v2}'], 0)
         else:
             df[f'{s}_l_flag_{v1}_{v2}'] = df.index.to_series().apply(
-                lambda x: 1 if start_long_idx and x>=start_long_idx else 0)
+                lambda x: 1 if start_long_idx and x >= start_long_idx else 0)
             df[f'{s}_l_position_{v1}_{v2}'] = np.where(
-                df[f'{s}_l_flag_{v1}_{v2}']==1,df[f'{s}_position_{v1}_{v2}'],0)
+                df[f'{s}_l_flag_{v1}_{v2}'] == 1, df[f'{s}_position_{v1}_{v2}'], 0)
 
-# This will be truely long only if first move is -1, then cumsum will always <=0, so buy when buy signal but never sell
-#         df[f'{s}_lo_position_{v1}_{v2}'] = np.where(
-#             df[f'{s}_ls_num_shares_outstanding_{v1}_{v2}']>=0,df[f'{s}_position_{v1}_{v2}'],0)
+        # This will be truely long only if first move is -1, then cumsum will always <=0, so buy when buy signal but never sell
+        #         df[f'{s}_lo_position_{v1}_{v2}'] = np.where(
+        #             df[f'{s}_ls_num_shares_outstanding_{v1}_{v2}']>=0,df[f'{s}_position_{v1}_{v2}'],0)
 
         df[f'{s}_l_num_shares_outstanding_{v1}_{v2}'] = df[f'{s}_l_position_{v1}_{v2}'].cumsum()
-        df[f'{s}_l_cash_flow_{v1}_{v2}'] = df[f'{s}_l_position_{v1}_{v2}']*df[price_type]
+        df[f'{s}_l_cash_flow_{v1}_{v2}'] = df[f'{s}_l_position_{v1}_{v2}'] * df[price_type]
         df[f'{s}_l_cumu_cash_flow_{v1}_{v2}'] = df[f'{s}_l_cash_flow_{v1}_{v2}'].cumsum()
 
-        df[f'{s}_l_cumu_gain_{v1}_{v2}'] = df[price_type]*df[
-            f'{s}_l_num_shares_outstanding_{v1}_{v2}']-df[f'{s}_l_cumu_cash_flow_{v1}_{v2}']
+        df[f'{s}_l_cumu_gain_{v1}_{v2}'] = df[price_type] * df[
+            f'{s}_l_num_shares_outstanding_{v1}_{v2}'] - df[f'{s}_l_cumu_cash_flow_{v1}_{v2}']
 
         # add start price to keep graph on same scale, gains don't account for increase in capital investment
-        df[f'{s}_l_cumu_wealth_{v1}_{v2}'] = df[f'{s}_l_cumu_gain_{v1}_{v2}']+l_start_price
+        df[f'{s}_l_cumu_wealth_{v1}_{v2}'] = df[f'{s}_l_cumu_gain_{v1}_{v2}'] + l_start_price
 
         if long_only:
             # fillna(0) to account for cases where no long occurs throughout selected investment period
             df[f'{s}_l_cumu_return_{v1}_{v2}'] = (df[
-                f'{s}_l_cumu_gain_{v1}_{v2}']/df[f'{s}_l_cumu_cash_flow_{v1}_{v2}']).fillna(0)
+                                                      f'{s}_l_cumu_gain_{v1}_{v2}'] / df[
+                                                      f'{s}_l_cumu_cash_flow_{v1}_{v2}']).fillna(0)
         else:
-            df[f'{s}_l_cumu_return_{v1}_{v2}'] = (df[f'{s}_l_cumu_gain_{v1}_{v2}']/l_start_price).fillna(0)
+            df[f'{s}_l_cumu_return_{v1}_{v2}'] = (df[f'{s}_l_cumu_gain_{v1}_{v2}'] / l_start_price).fillna(0)
 
-        df['strategy_ratio'] = (df[f'{s}_l_cumu_return_{v1}_{v2}']-
-                                df[f'hold_{period}_return'])/abs(df[f'hold_{period}_return'])
+        df['strategy_ratio'] = (df[f'{s}_l_cumu_return_{v1}_{v2}'] -
+                                df[f'hold_{period}_return']) / abs(df[f'hold_{period}_return'])
 
     if results:
-        return df[['close']+[x for x in df.columns if any(
-            keyword in x for keyword in ['execute','wealth','gain','return','hold','cumu_cash','strategy'])]].iloc[-1:,:]
+        return df[['close'] + [x for x in df.columns if any(
+            keyword in x for keyword in
+            ['execute', 'wealth', 'gain', 'return', 'hold', 'cumu_cash', 'strategy'])]].iloc[-1:, :]
 
     return df
+
+
+def yf_backtest_wrapper(tickers, interval='5m', period='1mo', price_type='close', windows=[20, 50],
+                        signals={'ema': (20, 50)}, extended_hours=False, long_only=False):
+    #     if ticker in INDEXES:
+    #         ticker = INDEXES[ticker]
+    period_start_date = convert_period(period)
+    interval_days = convert_interval(interval, max(windows + [200]))
+    start_date = period_start_date - BDay(interval_days)
+    resample_interval = interval.replace('m', 'Min').replace('d', 'B')
+
+    chunks = []
+    n = 25
+    for i in range(0, len(tickers), n):
+        chunks.append(tickers[i:i + n])
+
+    df_list = []
+    for tickers_list in chunks:
+        df = getData(equitiesTable, tickers=tickers_list, start_date=start_date,
+                     extended_hours=extended_hours)
+        df = df.groupby('ticker').apply(lambda x: yf_get_moving_average(df=x,
+                                                                        interval=interval, period=period,
+                                                                        price_type=price_type, windows=windows,
+                                                                        signals=signals, latest=False,
+                                                                        extended_hours=extended_hours))
+        df = df.groupby('ticker').apply(lambda x: yf_backtest(df=x.droplevel(0),
+                                                              interval=interval, period=period,
+                                                              price_type=price_type, windows=windows, signals=signals,
+                                                              long_only=long_only, results=True,
+                                                              extended_hours=extended_hours))
+        df_list.append(df)
+
+    df_agg = pd.concat(df_list)
+
+    return df_agg
 
 
 def yf_plot_moving_average(ticker,interval='1d',period='3mo',price_type='close',windows=[20,50],

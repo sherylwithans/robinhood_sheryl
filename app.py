@@ -17,28 +17,39 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 server = app.server
 
-holdings_df = rs_calc_agg_portfolio()
 
-def yf_backtest_wrapper(ticker):
-    s = 'ema'
-    (w1,w2) = (20,50)
-    interval = '5m'
-    period = '1mo'
-    # print(ticker)
-    df = yf_backtest(ticker,interval=interval,period=period,signals={s:(w1,w2)},results=True,long_only=False)
-    df.columns = [x.replace(f'_{w1}_{w2}','') for x in df.columns]
-    cols =['close', f'{s}_execute_order', f'{s}_execute_price',
-       f'{s}_execute_time', f'{s}_l_cumu_return', 'strategy_ratio',
-       f'hold_{period}_return']
-    if df.empty:
-#         cols = ['close',f'{s}_execute_order', f'{s}_execute_time',
-#                f'hold_{period}_return', f'{s}_l_cumu_return']
-        return pd.Series([np.nan]*len(cols),index=cols)
-    df = df[cols]
-    return pd.Series(df.values[0],index=df.columns)
+def get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
+                            windows=[20, 50], signals={'ema': (20, 50)}, long_only=False, extended_hours=False):
+    holdings_df = rs_calc_agg_portfolio().reset_index()
+    tickers_list = list(holdings_df['ticker'].unique())
+
+    yf_backtest_df = yf_backtest_wrapper(
+        tickers=tickers_list,
+        interval=interval,
+        period=period,
+        price_type=price_type,
+        windows=windows,
+        signals=signals,
+        long_only=long_only,
+        extended_hours=extended_hours
+    )
+    cols = ['close']
+    for s, (w1, w2) in signals.items():
+        (w1, w2) = windows
+        yf_backtest_df.columns = [x.replace(f'_{w1}_{w2}', '') for x in yf_backtest_df.columns]
+        cols += [f'{s}_execute_order', f'{s}_execute_price',
+                 f'{s}_execute_time', f'{s}_l_cumu_return', 'strategy_ratio',
+                 f'hold_{period}_return']
+
+    yf_backtest_df = yf_backtest_df[cols].reset_index()
+
+    pa_df = pd.merge(holdings_df, yf_backtest_df, on='ticker', how='left')
+    pa_df = pa_df.set_index(['Series name', 'Row ID'])
+
+    return pa_df
 
 print('generating initial portfolio analytics df...')
-pa_df = pd.concat([holdings_df,holdings_df['ticker'].apply(lambda x: yf_backtest_wrapper(x))],axis=1)
+pa_df = get_portfolio_analytics()
 
 
 def format_columns(df):
@@ -469,14 +480,12 @@ app.layout = html.Div([
     Output('table','data'),
     [Input('interval-component', 'n_intervals')])
 def generate_table(n):
-    print("generating holdings df...")
-    holdings_df = rs_calc_agg_portfolio()
+    print('updating portfolio analytics table...')
 #     cols_list = ['average_buy_price','quantity','day_gain','pct_change','total_gain','total_pct_gain']
 #     holdings_df[cols_list] = holdings_df[cols_list].apply(lambda x: random.uniform(-2,2)*x ,axis=1)
 #     pa_df = pd.concat([holdings_df,holdings_df.apply(yf_backtest_wrapper,axis=1)],axis=1)
-    print("generating portfolio analytics df...")
-    pa_df = pd.concat([holdings_df,holdings_df['ticker'].apply(lambda x: yf_backtest_wrapper(x))],axis=1)
-    
+    pa_df = get_portfolio_analytics(interval='5m',period='1mo',price_type='close',
+                windows=[20,50],signals={'ema':(20,50)},long_only=False,extended_hours=False)
     return pa_df.to_dict('records')
 
 @app.callback(
