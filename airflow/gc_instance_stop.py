@@ -14,7 +14,8 @@ from oauth2client.client import GoogleCredentials
 from cloud_vm.gc_instance_update import stop_instance
 
 AIRFLOW_HOME = os.environ.get("AF_HOME")
-sys.path.append(AIRFLOW_HOME)
+SYS_DIR = AIRFLOW_HOME + '../'
+sys.path.append(SYS_DIR)
 
 default_args = {
     'owner': 'sheryl',
