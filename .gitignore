@@ -1,3 +1,5 @@
+airflow/logs/
+airflow/*.cfg
 big_query/
 cloud_sql/
 cloud_vm/
