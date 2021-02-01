@@ -1,4 +1,3 @@
-airflow/
 big_query/
 cloud_sql/
 cloud_vm/
