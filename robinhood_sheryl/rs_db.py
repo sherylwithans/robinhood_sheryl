@@ -714,38 +714,75 @@ def get_portfolio_summary_data():
 
 #### insert portfolio data
 def insert_portfolio_data():
-    login()  # custom robinhood login function
-
     portfolio_df = get_portfolio_data()
     status = insertData(portfolioTable, portfolio_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert portfolio data\n==============")
         return False
+    return True
 
+
+def insert_crypto_data():
     crypto_df = get_crypto_data()
     status = insertData(cryptoTable, crypto_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert crypto data\n==============")
         return False
+    return True
 
+
+def insert_options_data():
     options_df = get_options_data()
     status = insertData(optionsTable, options_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert options data\n==============")
         return False
+    return True
 
+
+def insert_portfolio_summary_data():
     summary_df = get_portfolio_summary_data()
     status = insertData(portfolioSummaryTable, summary_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert portfolio summary data\n==============")
         return False
-
-    # status = insert_yf_data()
-    # if not status:
-    #     print(f"==============\nTERMINATED: Exception at insert yf data\n==============")
-    #     return False
-
     return True
+
+
+# #### insert portfolio data
+# def insert_portfolio_data():
+#     login()  # custom robinhood login function
+#
+#     portfolio_df = get_portfolio_data()
+#     status = insertData(portfolioTable, portfolio_df, DATABASE)
+#     if not status:
+#         print(f"==============\nTERMINATED: Exception at insert portfolio data\n==============")
+#         return False
+#
+#     crypto_df = get_crypto_data()
+#     status = insertData(cryptoTable, crypto_df, DATABASE)
+#     if not status:
+#         print(f"==============\nTERMINATED: Exception at insert crypto data\n==============")
+#         return False
+#
+#     options_df = get_options_data()
+#     status = insertData(optionsTable, options_df, DATABASE)
+#     if not status:
+#         print(f"==============\nTERMINATED: Exception at insert options data\n==============")
+#         return False
+#
+#     summary_df = get_portfolio_summary_data()
+#     status = insertData(portfolioSummaryTable, summary_df, DATABASE)
+#     if not status:
+#         print(f"==============\nTERMINATED: Exception at insert portfolio summary data\n==============")
+#         return False
+#
+#     # status = insert_yf_data()
+#     # if not status:
+#     #     print(f"==============\nTERMINATED: Exception at insert yf data\n==============")
+#     #     return False
+#
+#     return True
 
 
 ##################

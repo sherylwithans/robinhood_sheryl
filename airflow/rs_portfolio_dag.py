@@ -8,7 +8,8 @@ from airflow.operators.python_operator import PythonOperator
 AIRFLOW_HOME = os.environ.get("AF_HOME")
 sys.path.append(AIRFLOW_HOME)
 
-from robinhood_sheryl.rs_db import insert_portfolio_data, local_tz
+# from robinhood_sheryl.rs_db import insert_portfolio_data, local_tz
+from robinhood_sheryl.rs_db import *
 
 # import logging
 
@@ -19,7 +20,7 @@ from robinhood_sheryl.rs_db import insert_portfolio_data, local_tz
 default_args = {
     'owner': 'sheryl',
     'depends_on_past': False,
-    'start_date': datetime(2019, 8, 1,tzinfo=local_tz),
+    'start_date': datetime(2019, 8, 1, tzinfo=local_tz),
     'email': [os.environ.get("AF_EMAIL")],
     'email_on_failure': False,
     'email_on_retry': False,
@@ -27,12 +28,35 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-dag = DAG(
-    'dag_insert_portfolio_data', default_args=default_args, schedule_interval="*/2 8-19 * * 1-5", catchup=False,
-    )
+login()  # custom robinhood login function
 
-process_dag = PythonOperator(
-    task_id='dag_insert_portfolio_data',
-    python_callable=insert_portfolio_data,
-    dag=dag,
-    execution_timeout=timedelta(seconds=60))
+dag = DAG(
+    'dag_insert_portfolio_data',
+    default_args=default_args,
+    schedule_interval="*/2 8-19 * * 1-5",
+    catchup=False,
+)
+
+
+def get_python_operator(task_id, python_callable):
+    return PythonOperator(
+        task_id=task_id,
+        python_callable=python_callable,
+        dag=dag,
+        execution_timeout=timedelta(seconds=60))
+
+
+insert_portfolio_data = get_python_operator(task_id='insert_portfolio_data',
+                                            python_callable=insert_portfolio_data)
+
+insert_crypto_data = get_python_operator(task_id='insert_crypto_data',
+                                         python_callable=insert_crypto_data)
+
+insert_options_data = get_python_operator(task_id='insert_options_data',
+                                          python_callable=insert_options_data)
+
+insert_portfolio_summary_data = get_python_operator(task_id='insert_portfolio_summary_data',
+                                                    python_callable=insert_portfolio_summary_data)
+
+
+insert_portfolio_data >> insert_crypto_data >> insert_options_data >> insert_portfolio_summary_data
