@@ -5,7 +5,9 @@ from airflow import DAG
 # from airflow.models import Variable
 from airflow.operators.python_operator import PythonOperator
 
-sys.path.append(os.environ.get("AF_HOME"))
+AIRFLOW_HOME = os.environ.get("AF_HOME")
+SYS_DIR = AIRFLOW_HOME + '../'
+sys.path.append(SYS_DIR)
 
 import pendulum
 
