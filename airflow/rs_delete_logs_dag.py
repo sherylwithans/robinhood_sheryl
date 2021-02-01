@@ -38,8 +38,8 @@ paths = ['scheduler',
          'dag_insert_yf_data',
          'dag_insert_portfolio_data',
          'dag_delete_logs',
-         'dag_start_instance',
-         'dag_stop_instance',
+         # 'dag_start_instance',
+         # 'dag_stop_instance',
          ]
 
 # for i in range(3):
