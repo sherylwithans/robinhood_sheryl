@@ -10,7 +10,7 @@ sys.path.append(AIRFLOW_HOME)
 
 from robinhood_sheryl.rs_db import local_tz
 
-SYS_DIR = AIRFLOW_HOME + '../airflow'
+SYS_DIR = AIRFLOW_HOME + 'airflow'
 
 
 default_args = {
