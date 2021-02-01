@@ -15,9 +15,7 @@ from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 from cloud_vm.gc_instance_update import stop_instance
 
-AIRFLOW_HOME = os.environ.get("AF_HOME")
-SYS_DIR = AIRFLOW_HOME + '../'
-sys.path.append(SYS_DIR)
+local_tz = pendulum.timezone("US/Eastern")
 
 default_args = {
     'owner': 'sheryl',
