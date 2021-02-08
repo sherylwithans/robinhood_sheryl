@@ -42,8 +42,17 @@ logger = logging.getLogger()
 # #### set timezone
 local_tz = pendulum.timezone("US/Eastern")
 
+
 def get_UTC_datetime_now():
     return datetime.now(tz=pytz.timezone('UTC')).replace(microsecond=0)
+
+
+def get_datetime_now(timezone='US/Eastern',tzinfo=False):
+    dt = datetime.now(tz=pytz.timezone(timezone)).replace(microsecond=0)
+    if tzinfo is False:
+        return dt.replace(tzinfo=None)
+    else:
+        return dt
 
 
 def convert_datetime(x, timezone='UTC'):
@@ -412,14 +421,17 @@ def updateDividendsData(table, df, db_name, index_elements):
 
 
 #### update Tickers data
-def deleteRow(table, row, value, db_name):
+
+
+def deleteRow(table, row, value, db_name, t_type='equity', dryrun=True):
     try:
         dwhConnection = conn.connect()
         pg_sql = f"""DELETE FROM {table.__tablename__}
-                    WHERE {row} = '{value}' AND t_type='equity';"""
+                    WHERE {row} = '{value}' AND t_type='{t_type}';"""
 
         # print(pg_sql) # will give error 'The 'default' dialect with current database version settings does not support in-place multirow inserts.' bc print is not dialect aware
-        dwhConnection.execute(pg_sql)
+        if dryrun is False:
+            dwhConnection.execute(pg_sql)
         logging.debug(f'{value} deleted from {db_name} db {table.__tablename__} table')
         dwhConnection.close()
         return True
@@ -659,6 +671,15 @@ def get_options_data():
     df = df[['option_id', 'ticker', 'option_type', 'exp_date', 'strike_price',
              'quantity', 'average_buy_price']]
 
+    # remove expired options (exp_date<current_date-1)
+    expired_df = df[pd.to_datetime(df['exp_date']) < get_datetime_now('US/Eastern', False) - timedelta(days=1)]
+    for index, row in expired_df.iterrows():
+        print(
+            f"DELETE: option {row['ticker']} (id: {row['option_id']}) with\
+            \n\texp_date = {row['exp_date']} less than current date {get_datetime_now('US/Eastern', tzinfo=False)}")
+        deleteRow(table=tickersTable, row='id', value=row['option_id'], db_name=DATABASE, t_type='option', dryrun=False)
+    df = df[pd.to_datetime(df['exp_date']) >= get_datetime_now('US/Eastern', tzinfo=False) - timedelta(days=1)]
+
     market_data_df = pd.DataFrame()
     for option_id in df['option_id'].to_list():
         market_data_df = market_data_df.append(pd.DataFrame(r.options.get_option_market_data_by_id(option_id)),
@@ -676,7 +697,7 @@ def get_options_data():
 
     df['average_buy_price'] = df['average_buy_price'] / 100
 
-    df['datetime'] = datetime.now(tz=pytz.timezone('US/Eastern'))  #.replace(tzinfo=None)
+    df['datetime'] = datetime.now(tz=pytz.timezone('US/Eastern'))  # .replace(tzinfo=None)
     df['exp_date'] = pd.to_datetime(df['exp_date']).dt.date
     df['previous_close_date'] = pd.to_datetime(df['previous_close_date']).dt.date
 
