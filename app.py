@@ -20,7 +20,12 @@ server = app.server
 
 def get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
                             windows=[20, 50], signals={'ema': (20, 50)}, long_only=False, extended_hours=False):
-    holdings_df = rs_calc_agg_portfolio().reset_index()
+    holdings_df = rs_calc_agg_portfolio()
+    if holdings_df is False:
+        print("TERMINATED at get_portfolio_analytics: holdings_df returned false")
+        return False
+    else:
+        holdings_df = holdings_df.reset_index()
     tickers_list = list(holdings_df['ticker'].unique())
 
     yf_backtest_df = yf_backtest_wrapper(
@@ -49,8 +54,7 @@ def get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
     return pa_df
 
 
-print('generating initial portfolio analytics df...')
-pa_df = get_portfolio_analytics()
+
 
 
 def format_columns(df):
@@ -458,27 +462,28 @@ def format_table(df):
     return table
 
 
-app.layout = html.Div([
-    html.H4(id='welcome_msg'),
+def set_app_layout(df):
+    app.layout = html.Div([
+        html.H4(id='welcome_msg'),
 
-    html.Div(children='''
-        Dash: A web application framework for Python.
-    '''),
+        html.Div(children='''
+            Dash: A web application framework for Python.
+        '''),
 
-    html.Div(id='nasdaq_futures'),
+        html.Div(id='nasdaq_futures'),
 
-    format_content(),
-    format_table(pa_df),
+        format_content(),
+        format_table(df),
 
-    dcc.Interval(
-        id='interval-component',
-        interval=120 * 1000,  # in milliseconds
-        n_intervals=0,
+        dcc.Interval(
+            id='interval-component',
+            interval=120 * 1000,  # in milliseconds
+            n_intervals=0,
+        )
+    ],
+
+        style=CONTENT_STYLE
     )
-],
-
-    style=CONTENT_STYLE
-)
 
 
 @app.callback(
@@ -645,4 +650,10 @@ def update_styles(rows, derived_virtual_selected_rows):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8050)
+    print('generating initial portfolio analytics df...')
+    pa_df = get_portfolio_analytics()
+    if pa_df is False:
+        print("Please check IP address and/or firewall")
+    else:
+        set_app_layout(pa_df)
+        app.run_server(debug=True, port=8050)

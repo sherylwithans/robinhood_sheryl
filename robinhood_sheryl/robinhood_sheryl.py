@@ -605,7 +605,11 @@ def rs_calc_portfolio(df, option=False, info=None):
 def rs_calc_agg_portfolio():
     agg_cols = ['name', 'ticker', 'average_buy_price', 'quantity', 'prev_close_price', 'latest_price', ]
 
-    df = rs_get_portfolio()[agg_cols]
+    df = rs_get_portfolio()
+    if df is False:
+        return df
+    else:
+        df = df[agg_cols]
     df = rs_calc_portfolio(df)
 
     o_df = rs_get_option_portfolio()[agg_cols]
