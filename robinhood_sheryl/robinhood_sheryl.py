@@ -582,7 +582,7 @@ def rs_get_portfolio():
 
 
 def rs_get_option_portfolio():
-    df = getLatestData(optionsTable)
+    df = getLatestData(optionsTable, key='ticker', time_zone='US/Eastern', view_expired_options=False)
     df['name'] = df[['ticker', 'strike_price', 'option_type', 'exp_date']].apply(
         lambda x: f"{x[0]} {x[1]} {x[2]} exp {x[3]}", axis=1)
     return df

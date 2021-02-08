@@ -320,9 +320,17 @@ def getLatestRowData(table, value, key='ticker'):
 #### get latest data
 
 
-def getLatestData(table, key='ticker'):
-    return executeQuery(
-        f"SELECT * FROM {table.__tablename__} WHERE {key} NOT LIKE '^%%' AND (datetime,{key}) IN (SELECT MAX(datetime),{key} FROM {table.__tablename__} GROUP BY {key})")
+def getLatestData(table, key='ticker', time_zone='US/Eastern', view_expired_options=False):
+    query = f"""SELECT * FROM {table.__tablename__}
+                WHERE {key} NOT LIKE '^%%' AND (datetime,{key}) IN 
+                    (SELECT MAX(datetime),{key}
+                    FROM {table.__tablename__}
+                    GROUP BY {key})"""
+
+    if table == optionsTable and view_expired_options is False:
+        query += f" AND NOW() AT TIME ZONE '{time_zone}'<exp_date+1 "
+
+    return executeQuery(query)
 
 
 #### get latest data with name
@@ -426,13 +434,25 @@ def updateDividendsData(table, df, db_name, index_elements):
 def deleteRow(table, row, value, db_name, t_type='equity', dryrun=True):
     try:
         dwhConnection = conn.connect()
-        pg_sql = f"""DELETE FROM {table.__tablename__}
+
+        if table == optionsTable:
+            count_query = f"""SELECT COUNT(*) as count FROM {table.__tablename__}
+                                WHERE {row} = '{value}' AND datetime AT TIME ZONE 'US/Eastern'>exp_date+1"""
+            count_df = read_sql_inmem_uncompressed(count_query, conn)
+            pg_sql = f"""DELETE FROM {table.__tablename__}
+                                WHERE {row} = '{value}' AND datetime AT TIME ZONE 'US/Eastern'>exp_date+1;"""
+        else:
+            count_query = f"""SELECT COUNT(*) as count FROM {table.__tablename__}
+                                WHERE {row} = '{value}' AND t_type='{t_type}'"""
+            count_df = read_sql_inmem_uncompressed(count_query, conn)
+            pg_sql = f"""DELETE FROM {table.__tablename__}
                     WHERE {row} = '{value}' AND t_type='{t_type}';"""
 
         # print(pg_sql) # will give error 'The 'default' dialect with current database version settings does not support in-place multirow inserts.' bc print is not dialect aware
         if dryrun is False:
             dwhConnection.execute(pg_sql)
-        logging.debug(f'{value} deleted from {db_name} db {table.__tablename__} table')
+        logging.debug(
+            f'(dryrun={dryrun}): {count_df.iloc[0, 0]} entries with {row}={value} deleted from {db_name} db {table.__tablename__} table')
         dwhConnection.close()
         return True
     except Exception as e:
@@ -671,13 +691,15 @@ def get_options_data():
     df = df[['option_id', 'ticker', 'option_type', 'exp_date', 'strike_price',
              'quantity', 'average_buy_price']]
 
-    # remove expired options (exp_date<current_date-1)
+    # remove expired options from tickers and options table (exp_date<current_date-1)
     expired_df = df[pd.to_datetime(df['exp_date']) < get_datetime_now('US/Eastern', False) - timedelta(days=1)]
     for index, row in expired_df.iterrows():
         print(
             f"DELETE: option {row['ticker']} (id: {row['option_id']}) with\
             \n\texp_date = {row['exp_date']} less than current date {get_datetime_now('US/Eastern', tzinfo=False)}")
         deleteRow(table=tickersTable, row='id', value=row['option_id'], db_name=DATABASE, t_type='option', dryrun=False)
+        deleteRow(table=optionsTable, row='option_id',
+                  value=row['option_id'], db_name=DATABASE, t_type=None, dryrun=False)
     df = df[pd.to_datetime(df['exp_date']) >= get_datetime_now('US/Eastern', tzinfo=False) - timedelta(days=1)]
 
     market_data_df = pd.DataFrame()
