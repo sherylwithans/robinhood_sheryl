@@ -630,7 +630,6 @@ def update_styles(rows, derived_virtual_selected_rows):
         derived_virtual_selected_rows = [0]
     dff = pa_df if rows is None else pd.DataFrame(rows)
     columns = dff.columns
-
     style = [{
         'if': {'row_index': i},
         'background_color': '#D2F3FF'
