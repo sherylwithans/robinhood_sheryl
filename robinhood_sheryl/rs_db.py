@@ -298,8 +298,9 @@ def getData(table, rows={}, column='*', tickers=[], start_date='', end_date='',
     try:
         df = executeQuery(query)
         if column != '*':
-            ret_value = df[column]
-            return ret_value if len(ret_value) == 1 else list(ret_value)  # if single value return the value
+            if ',' not in column:
+                ret_value = df[column]
+                return ret_value if len(ret_value) == 1 else list(ret_value)  # if single value return the value
         if has_datetime:
             df['datetime'] = pd.to_datetime(df['datetime'])
             return df.set_index('datetime')
@@ -320,18 +321,20 @@ def getLatestRowData(table, value, key='ticker'):
 #### get latest data
 
 
-def getLatestData(table, key='ticker', time_zone='US/Eastern', view_expired_options=False):
-    query = f"""SELECT * FROM {table.__tablename__}
+def getLatestData(table, column='*',key='ticker', time_zone='US/Eastern', view_expired_options=False, tickers=[]):
+    query = f"""SELECT {column} FROM {table.__tablename__}
                 WHERE {key} NOT LIKE '^%%' AND (datetime,{key}) IN 
                     (SELECT MAX(datetime),{key}
                     FROM {table.__tablename__}
                     GROUP BY {key})"""
+    if tickers:
+        tickers_str = ",".join([f"'{x}'" for x in tickers])
+        query += f" AND ticker IN ({tickers_str}) "
 
     if table == optionsTable and view_expired_options is False:
         query += f" AND NOW() AT TIME ZONE '{time_zone}'<exp_date+1 "
 
     return executeQuery(query)
-
 
 #### get latest data with name
 
