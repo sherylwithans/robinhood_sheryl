@@ -321,20 +321,25 @@ def getLatestRowData(table, value, key='ticker'):
 #### get latest data
 
 
-def getLatestData(table, column='*',key='ticker', time_zone='US/Eastern', view_expired_options=False, tickers=[]):
+def getLatestData(table, column='*', key='ticker', time_zone='US/Eastern', view_expired_options=False, tickers=[]):
     query = f"""SELECT {column} FROM {table.__tablename__}
                 WHERE {key} NOT LIKE '^%%' AND (datetime,{key}) IN 
                     (SELECT MAX(datetime),{key}
-                    FROM {table.__tablename__}
-                    GROUP BY {key})"""
+                    FROM {table.__tablename__}"""
     if tickers:
         tickers_str = ",".join([f"'{x}'" for x in tickers])
+        query += f" WHERE ticker IN ({tickers_str}) "
+
+    query += f" GROUP BY {key})"
+
+    if tickers:
         query += f" AND ticker IN ({tickers_str}) "
 
     if table == optionsTable and view_expired_options is False:
         query += f" AND NOW() AT TIME ZONE '{time_zone}'<exp_date+1 "
 
     return executeQuery(query)
+
 
 #### get latest data with name
 

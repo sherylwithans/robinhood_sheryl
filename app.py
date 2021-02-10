@@ -54,9 +54,6 @@ def get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
     return pa_df
 
 
-
-
-
 def format_columns(df):
     columns = df.columns
     type_dict = dict(df.iloc[0].map(lambda x: 'text' if isinstance(x, str) else 'numeric'))
@@ -339,13 +336,13 @@ def format_graphs(graph_id):
     return dcc.Graph(id=graph_id, style={'height': '500px'})
 
 
-def format_radio_buttons(radio_id, values_dict):
+def format_radio_buttons(radio_id, values_dict, default=0):
     options = []
     for k, v in values_dict.items():
         options.append({'label': v, 'value': k})
     return dcc.RadioItems(id=radio_id,
                           options=options,
-                          value=list(values_dict.keys())[0],
+                          value=list(values_dict.keys())[default],
                           labelStyle={'display': 'block'},
                           )
 
@@ -384,7 +381,9 @@ def format_content():
             width=11),
         dbc.Col([
             dbc.Row(
-                format_radio_buttons('radio_1', {'3mo': '3 months', '1mo': '1 month', '5d': '1 week', '1d': '1 day'}),
+                format_radio_buttons('radio_1',
+                                     {'3mo': '3 months', '1mo': '1 month', '5d': '1 week', '1d': '1 day'},
+                                     default=1),
                 #             width=1,
                 align='center'),
             dbc.Row(format_radio_buttons('radio_2',
@@ -455,7 +454,7 @@ def format_table(df):
         sort_action="native",
         sort_mode="multi",
         column_selectable="single",
-        row_selectable="single",
+        row_selectable="multi",
         selected_rows=[],
         page_action='native',
     )
@@ -604,18 +603,39 @@ def update_graphs(rows, derived_virtual_selected_rows, radio_period, radio_inter
     dff = pa_df if rows is None else pd.DataFrame(rows)
 
     ticker = dff['ticker'].iloc[derived_virtual_selected_rows[0]]
+    tickers = list(dff['ticker'].iloc[derived_virtual_selected_rows].values)
     #     print(derived_virtual_selected_rows)
     #     print(ticker)
     extended_hours = True if datetime.now().hour >= 16 else False
-    if radio_type == 'portfolio':
-        fig = rs_plot_portfolio(interval=radio_interval, period=radio_period,
-                                primary_axis_type='total_equity', secondary_axis_type='', extended_hours=extended_hours)
-    elif extended_hours or radio_type == 'moving_average':
-        fig = yf_plot_moving_average(ticker, interval=radio_interval, period=radio_period, windows=[20, 50],
-                                     signals={'ema': (20, 50)}, bband=False, extended_hours=extended_hours)
+    if len(derived_virtual_selected_rows) > 1:
+        fig = rs_plot_selection(tickers,
+                                interval=radio_interval,
+                                period=radio_period,
+                                primary_axis_type='portfolio_close',
+                                secondary_axis_type=f'hold_{radio_period}_return',
+                                extended_hours=False)
     else:
-        fig = yf_plot_backtest(ticker, interval=radio_interval, period=radio_period,
-                               signals={'ema': (20, 50)}, secondary_axis_type='return', long_only=False)
+        if radio_type == 'portfolio':
+            fig = rs_plot_portfolio(interval=radio_interval,
+                                    period=radio_period,
+                                    primary_axis_type='total_equity',
+                                    secondary_axis_type='',
+                                    extended_hours=extended_hours)
+        elif extended_hours or radio_type == 'moving_average':
+            fig = yf_plot_moving_average(ticker,
+                                         interval=radio_interval,
+                                         period=radio_period,
+                                         windows=[20, 50],
+                                         signals={'ema': (20, 50)},
+                                         bband=False,
+                                         extended_hours=extended_hours)
+        else:
+            fig = yf_plot_backtest(ticker,
+                                   interval=radio_interval,
+                                   period=radio_period,
+                                   signals={'ema': (20, 50)},
+                                   secondary_axis_type='return',
+                                   long_only=False)
     return fig
 
 

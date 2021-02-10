@@ -633,8 +633,17 @@ def rs_calc_agg_portfolio():
                    'total_gain', 'total_pct_gain', 'latest_price', ]]
 
 
-def rs_plot(df, interval='5m', period='1mo', primary_axis_type='total_equity', secondary_axis_type='',
-            extended_hours=True):
+## graph portfolio
+
+
+def rs_calculations(df,price_type,period):
+    start_price = df[price_type][0]
+    df[f'hold_{period}_gain'] = df[price_type]-start_price
+    df[f'hold_{period}_return'] = df[f'hold_{period}_gain']/start_price
+    return df
+
+
+def resample_backfill_calc(df, interval='5m', period='1mo', price_type='', extended_hours=False):
     start_date = str(convert_period(period).date())
 
     # reindex to fill in values for missing time periods
@@ -653,45 +662,77 @@ def rs_plot(df, interval='5m', period='1mo', primary_axis_type='total_equity', s
     else:
         interval_start_time = '09:30'
         interval_end_time = '15:59'
+
     # df = df.resample(resample_interval,base=base).last()
     df = df.resample(resample_interval, offset=offset).last()
-
+    current_end_time = df.index[-1]
     #     .between_time('9:31', '15:59')
-    #     return df
+
     idx = pd.date_range(start_date, str(datetime.today()), freq=freq, tz='US/Eastern')
     df = df.reindex(idx, fill_value=np.NaN)
-    df = df.replace(to_replace=np.nan, method='ffill').between_time(interval_start_time, interval_end_time)
-    #     df = df.interpolate(method='linear', limit_direction='forward', axis=0)
+    df = df.replace(to_replace=np.NaN, method='ffill')
+    df = df.between_time(interval_start_time, interval_end_time)
+    df.index.name = 'datetime'
+    if price_type:
+        df = rs_calculations(df, price_type, period)
 
-    #     return df
+    return df[:current_end_time]
+
+
+def rs_plot(df, interval='5m', period='1mo', primary_axis_type='total_equity', secondary_axis_type='',
+            secondary_axis_bar=False, extended_hours=True, title=''):
+    start_date = str(convert_period(period).date())
+
+    df = resample_backfill_calc(df,
+                                interval=interval,
+                                period=period,
+                                price_type=primary_axis_type,
+                                extended_hours=extended_hours)
+
     # Create figure with secondary y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # Add traces
+    # Add traces: primary_axis_type
     fig.add_trace(
-        go.Scatter(x=df.index, y=df[primary_axis_type], name=primary_axis_type.lower()),
+        go.Scatter(x=df.index,
+                   y=df[primary_axis_type],
+                   name=primary_axis_type.lower(),
+                   ),
         secondary_y=False,
     )
-    # Set y-axes titles
+
     fig.update_yaxes(title_text=f"<b>primary</b> {primary_axis_type}", secondary_y=False)
 
     # Add figure title
+    if title:
+        title = title + " Time Series Plot"
+    else:
+        title = f"<b>Portfolio</b> {primary_axis_type} Time Series Plot"
     fig.update_layout(
-        title_text=f"<b>Portfolio</b> {primary_axis_type} Time Series Plot"
+        title_text=title
     )
 
     if secondary_axis_type:
-        fig.add_trace(
-            go.Scatter(x=df.index, y=df[secondary_axis_type], name=secondary_axis_type.lower(),
+        if secondary_axis_bar:
+            fig.add_trace(
+                go.Bar(x=df.index, y=df[secondary_axis_type], name=secondary_axis_type.lower(),
                        marker_color='darkred',
                        ),
-            secondary_y=True,
-        )
+                secondary_y=True,
+            )
+        else:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df[secondary_axis_type], name=secondary_axis_type.lower(),
+                           marker_color='darkred',
+                           ),
+                secondary_y=True,
+            )
         fig.update_yaxes(title_text=f"<b>secondary</b> {secondary_axis_type}", secondary_y=True)
 
-        fig.update_layout(
-            title_text=f"<b>Portfolio</b> {primary_axis_type} and {secondary_axis_type} Time Series Plot"
-        )
+        if not title:
+            fig.update_layout(
+                title_text=f"<b>Portfolio</b> {primary_axis_type} and {secondary_axis_type} Time Series Plot"
+            )
 
     rangebreaks = [
         dict(bounds=["sat", "mon"]),  # hide weekends
@@ -728,4 +769,57 @@ def rs_plot_portfolio(interval='5m', period='1mo',
     return rs_plot(df, interval=interval, period=period,
                    primary_axis_type=primary_axis_type, secondary_axis_type=secondary_axis_type,
                    extended_hours=extended_hours)
+
+
+def rs_plot_selection(tickers: [], interval='5m', period='1mo',
+                      primary_axis_type='portfolio_close', secondary_axis_type='', extended_hours=False):
+    start_date = str(convert_period(period).date())
+
+    # get latest quantity from portfolio table
+    df_quantity = getLatestData(portfolioTable, column='ticker,quantity,latest_price', tickers=tickers)
+    df_quantity = df_quantity.set_index('ticker')
+    quantity_dict = df_quantity['quantity'].to_dict()
+
+    # get price history from equities table (more stable)
+    df = getData(equitiesTable, tickers=tickers, start_date=start_date, extended_hours=extended_hours)
+    df['quantity'] = df['ticker'].apply(lambda x: quantity_dict[x])
+    df['portfolio_close'] = df['close'] * df['quantity']
+    df_agg = df.groupby('ticker').apply(lambda x: resample_backfill_calc(x,
+                                                                         interval,
+                                                                         period,
+                                                                         price_type=primary_axis_type,
+                                                                         extended_hours=extended_hours))
+    df_sum = df_agg.drop('ticker', axis=1).reset_index().groupby('datetime').sum()
+    # recalculate hold returns instead of simple sum
+    df_sum = rs_calculations(df_sum, price_type=primary_axis_type, period=period)
+
+    col_name = f"hold_{period}_return"
+    title = f'<b>Total {df_sum[col_name][-1]:.2%}:</b> '
+    df_quantity['weight'] = df_quantity[
+                                'quantity'] * df_quantity['latest_price'] / sum(
+        df_quantity['quantity'] * df_quantity['latest_price'])
+    for ticker in df_quantity.index:
+        weight = df_quantity.loc[ticker]['weight']
+        title += f'{ticker} ({weight:.2%}),'
+
+    fig = rs_plot(df_sum, interval=interval, period=period,
+                  primary_axis_type=primary_axis_type, secondary_axis_type=secondary_axis_type,
+                  secondary_axis_bar=False,
+                  extended_hours=extended_hours,
+                  title=title)
+
+    annotations = []
+    for ticker in df_quantity.index:
+        df_ticker = df_agg.loc[ticker]
+        # Add traces
+        fig.add_trace(
+            go.Scatter(x=df_ticker.index,
+                       y=df_ticker[col_name],
+                       name=f'{ticker} {period} {df_ticker[col_name][-1]:.2%}',
+                       ),
+            secondary_y=True,
+        )
+
+    fig.update_layout(annotations=annotations)
+    return fig
 
