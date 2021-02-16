@@ -636,8 +636,9 @@ def rs_calc_agg_portfolio():
 ## graph portfolio
 
 
-def rs_calculations(df,price_type,period):
-    start_price = df[price_type][0]
+def rs_calculations(df,price_type,period, start_price=False):
+    if not start_price:
+        start_price = df[price_type].loc[~df[price_type].isnull()].iloc[0]
     df[f'hold_{period}_gain'] = df[price_type]-start_price
     df[f'hold_{period}_return'] = df[f'hold_{period}_gain']/start_price
     return df
@@ -775,29 +776,49 @@ def rs_plot_selection(tickers: [], interval='5m', period='1mo',
                       primary_axis_type='portfolio_close', secondary_axis_type='', extended_hours=False):
     start_date = str(convert_period(period).date())
 
-    # get latest quantity from portfolio table
-    df_quantity = getLatestData(portfolioTable, column='ticker,quantity,latest_price', tickers=tickers)
-    df_quantity = df_quantity.set_index('ticker')
-    quantity_dict = df_quantity['quantity'].to_dict()
-
     # get price history from equities table (more stable)
     df = getData(equitiesTable, tickers=tickers, start_date=start_date, extended_hours=extended_hours)
-    df['quantity'] = df['ticker'].apply(lambda x: quantity_dict[x])
-    df['portfolio_close'] = df['close'] * df['quantity']
+
+    # calculate returns per ticker
     df_agg = df.groupby('ticker').apply(lambda x: resample_backfill_calc(x,
                                                                          interval,
                                                                          period,
-                                                                         price_type=primary_axis_type,
+                                                                         price_type='close',
                                                                          extended_hours=extended_hours))
-    df_sum = df_agg.drop('ticker', axis=1).reset_index().groupby('datetime').sum()
-    # recalculate hold returns instead of simple sum
-    df_sum = rs_calculations(df_sum, price_type=primary_axis_type, period=period)
+
+    # get latest quantity from portfolio table
+    df_quantity = getLatestData(portfolioTable, column='ticker,quantity,latest_price', tickers=tickers)
+    df_quantity = df_quantity.set_index('ticker')
+
+    df_quantity['start_price'] = df_agg.groupby(level=0).apply(lambda df: df['close'][~df['close'].isnull()].iloc[0])
+    df_quantity['end_price'] = df_agg.groupby(level=0).apply(lambda df: df['close'].iloc[-1])
+
+    equal_weighted = False
+    # create equal weight portfolio if any ticker doesn't have existing quantity
+    if df_quantity['quantity'].isnull().any():
+        equal_weighted = True
+        num_tickers = df_quantity['end_price'].count()
+        df_quantity['quantity'] = df_quantity['start_price'].apply(lambda x: 100 / num_tickers / x)
+
+    quantity_dict = df_quantity['quantity'].to_dict()
+
+    # sum portfolio gains ($ value)
+    df_portfolio = df_agg.drop('ticker', axis=1).reset_index()
+    df_portfolio['quantity'] = df_portfolio['ticker'].apply(lambda x: quantity_dict[x])
+    df_portfolio['portfolio_close'] = df_portfolio['close'] * df_portfolio['quantity']
+    df_sum = df_portfolio.groupby('datetime').sum()
+
+    # recalculate hold returns (% value) instead of simple sum
+    df_sum = rs_calculations(df_sum,
+                             price_type=primary_axis_type,
+                             period=period,
+                             start_price=100 if equal_weighted else False)
 
     col_name = f"hold_{period}_return"
     title = f'<b>Total {df_sum[col_name][-1]:.2%}:</b> '
     df_quantity['weight'] = df_quantity[
-                                'quantity'] * df_quantity['latest_price'] / sum(
-        df_quantity['quantity'] * df_quantity['latest_price'])
+                                'quantity'] * df_quantity['end_price'] / sum(
+                                    df_quantity['quantity'] * df_quantity['end_price'])
     for ticker in df_quantity.index:
         weight = df_quantity.loc[ticker]['weight']
         title += f'{ticker} ({weight:.2%}),'
@@ -822,4 +843,5 @@ def rs_plot_selection(tickers: [], interval='5m', period='1mo',
 
     fig.update_layout(annotations=annotations)
     return fig
+
 
