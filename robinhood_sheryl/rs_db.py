@@ -480,7 +480,7 @@ def get_yf_data(ticker, start_date):
     if start_date:
         df = stock.history(interval="1m", start=start_date, prepost=True)[:-1]  # drop duplicate data with non 0 seconds
     else:  # catchup
-        df = stock.history(interval='1m', period='5d', prepost=True)[:-1]
+        df = stock.history(interval='5m', period='60d', prepost=True)[:-1]
 
     # logging.debug(f'getting data for {ticker}')
     if df.empty:
@@ -504,7 +504,7 @@ def insert_yf_data(tickers_list=None, catchup=False, print_details=False):
         tickers_list = list(set(tickers_list))
         tickers_list.extend(list(INDEXES.values()))
     if catchup is True:
-        print(f"\n==============\nCATCHUP: getting data for equities for catchup run from period 5d\n==============")
+        print(f"\n==============\nCATCHUP: getting data for equities for catchup run from period 60d\n==============")
     for ticker in tickers_list:
         # get max datetime of last ticker scrape
         hist_df = getLatestRowData(equitiesTable, ticker)
@@ -515,7 +515,7 @@ def insert_yf_data(tickers_list=None, catchup=False, print_details=False):
         if pd.isnull(start_time) or catchup is True:  # no prior data, first time catchup run
             start_date = ''
             if print_details:
-                print(f"\n==============\nREQUEST: getting data for equities {ticker} from period 5d\n==============")
+                print(f"\n==============\nREQUEST: getting data for equities {ticker} from period 60d\n==============")
         else:
             start_date = start_time.replace(tzinfo=None) - timedelta(minutes=5)
             if print_details:
