@@ -621,7 +621,7 @@ def update_graphs(rows, derived_virtual_selected_rows, radio_period, radio_inter
                                     primary_axis_type='total_equity',
                                     secondary_axis_type='',
                                     extended_hours=extended_hours)
-        elif extended_hours or radio_type == 'moving_average':
+        elif radio_type == 'moving_average':
             fig = yf_plot_moving_average(ticker,
                                          interval=radio_interval,
                                          period=radio_period,
@@ -630,12 +630,15 @@ def update_graphs(rows, derived_virtual_selected_rows, radio_period, radio_inter
                                          bband=False,
                                          extended_hours=extended_hours)
         else:
-            fig = yf_plot_backtest(ticker,
-                                   interval=radio_interval,
-                                   period=radio_period,
-                                   signals={'ema': (20, 50)},
-                                   secondary_axis_type='return',
-                                   long_only=False)
+            fig = rs_plot_order_backtest(ticker,
+                                         interval=radio_interval,
+                                         period=radio_period,
+                                         price_type='close',
+                                         windows=[20, 50],
+                                         signals={'ema': (20, 50)},
+                                         secondary_axis_type='return',
+                                         long_only=False,
+                                         extended_hours=extended_hours)  # backtest portion always excludes extended hrs
     return fig
 
 
@@ -674,5 +677,7 @@ if __name__ == '__main__':
     if pa_df is False:
         print("Please check IP address and/or firewall")
     else:
+        print('generating initial stock order history df...')
+        orders_df = rs_get_stock_orders()
         set_app_layout(pa_df)
         app.run_server(debug=True, port=8050)

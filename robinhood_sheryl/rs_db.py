@@ -47,7 +47,7 @@ def get_UTC_datetime_now():
     return datetime.now(tz=pytz.timezone('UTC')).replace(microsecond=0)
 
 
-def get_datetime_now(timezone='US/Eastern',tzinfo=False):
+def get_datetime_now(timezone='US/Eastern', tzinfo=False):
     dt = datetime.now(tz=pytz.timezone(timezone)).replace(microsecond=0)
     if tzinfo is False:
         return dt.replace(tzinfo=None)
@@ -61,7 +61,7 @@ def convert_datetime(x, timezone='UTC'):
     if timezone == 'UTC':
         date_eastern = eastern.localize(x, is_dst=None)
         return date_eastern.astimezone(utc)
-    else: # timezone == 'EST'
+    else:  # timezone == 'EST'
         return x.astimezone(utc)
 
 
@@ -84,6 +84,8 @@ INDEXES = {'Nasdaq': '^IXIC',
 
 conn = init_connection_engine()
 Base = declarative_base()
+
+
 # meta = MetaData(conn).reflect()
 
 
@@ -193,6 +195,30 @@ class portfolioSummaryTable(Base):
     excess_maintenance = Column(Float)
 
 
+class ordersTable(Base):
+    __tablename__ = 'orders'
+
+    datetime = Column(DateTime(timezone=True), primary_key=True, default=get_UTC_datetime_now())
+    ticker = Column(Text, primary_key=True)
+    side = Column(Text)
+    type = Column(Text)
+    time_in_force = Column(Text)
+    state = Column(Text)
+    total_notional_amount = Column(Float)
+    executed_notional_amount = Column(Float)
+    executions_price = Column(Float)
+    executions_quantity = Column(Float)
+    fees = Column(Float)
+    extended_hours = Column(Boolean)
+    trigger = Column(Text)
+    cumulative_quantity = Column(Float)
+    quantity = Column(Float)
+    average_price = Column(Float)
+    price = Column(Float)
+    stop_price = Column(Float)
+    stop_triggered_at = Column(DateTime(timezone=True))
+
+
 def initTables():
     isRun = False
     Base.metadata.create_all(bind=conn)
@@ -225,7 +251,7 @@ def read_sql_tmpfile(query, db_engine):
     try:
         with tempfile.TemporaryFile() as tmpfile:
             copy_sql = "COPY ({query}) TO STDOUT WITH CSV {head}".format(
-               query=query, head="HEADER"
+                query=query, head="HEADER"
             )
             raw_conn = db_engine.raw_connection()
             cur = raw_conn.cursor()
@@ -257,7 +283,7 @@ def executeQuery(query):
                 df['datetime'] = pd.to_datetime(df['datetime'], utc=True)
                 if df['datetime'].iloc[0].tzinfo is None:  # not tz aware, used in yf analysis functions
                     df['datetime'] = df['datetime'].dt.tz_localize('UTC').dt.tz_convert('US/Eastern')
-                else: # already tz aware, downloaded data from yf
+                else:  # already tz aware, downloaded data from yf
                     df['datetime'] = df['datetime'].dt.tz_convert('US/Eastern')
         # dwhConnection.close()
         return df
@@ -277,7 +303,7 @@ def getColumns(table):
 
 def getData(table, rows={}, column='*', tickers=[], start_date='', end_date='',
             extended_hours=False, market_hours=('09:30', '15:59:59'), timezone='US/Eastern'):
-    has_datetime = table.__tablename__ in ['equities', 'portfolio', 'portfolio_summary']
+    has_datetime = table.__tablename__ in ['equities', 'portfolio', 'portfolio_summary','orders']
 
     query = f" SELECT {column} FROM {table.__tablename__} WHERE TRUE "
 
@@ -300,7 +326,13 @@ def getData(table, rows={}, column='*', tickers=[], start_date='', end_date='',
         if column != '*':
             if ',' not in column:
                 ret_value = df[column]
-                return ret_value if len(ret_value) == 1 else list(ret_value)  # if single value return the value
+                if not ret_value.empty and len(ret_value) == 1:
+                    return ret_value.iloc[0]
+                elif len(ret_value) > 1:
+                    return list(ret_value)
+                else:
+                    return np.NaN
+        #                 return str(ret_value) if len(ret_value) <= 1 else list(ret_value)  # if single value return the value
         if has_datetime:
             df['datetime'] = pd.to_datetime(df['datetime'])
             return df.set_index('datetime')
@@ -374,7 +406,8 @@ def insertData(table, df, db_name):
             pg_sql = insert(table.__table__, chunk.to_dict("records")).on_conflict_do_nothing()
             dwhConnection.execute(pg_sql)
         # print(pg_sql) # will give error 'The 'default' dialect with current database version settings does not support in-place multirow inserts.' bc print is not dialect aware
-        print(f'==============\n{len(df)} rows written to {db_name} db {table.__tablename__} table in {len(chunks)} chunks\n==============')
+        print(
+            f'==============\n{len(df)} rows written to {db_name} db {table.__tablename__} table in {len(chunks)} chunks\n==============')
         # logging.debug(f'{len(df)} rows written to {db_name} db {table.__tablename__} table in {len(chunks)} chunks')
         dwhConnection.close()
         return True
@@ -408,6 +441,7 @@ def updateData(table, df, db_name, index_elements):
     except Exception as e:
         print(f'==============\nException at updateData: {e}\n==============')
         return False
+
 
 #### update yf Dividend data
 def updateDividendsData(table, df, db_name, index_elements):
@@ -534,9 +568,10 @@ def insert_yf_data(tickers_list=None, catchup=False, print_details=False):
                 df_dividends = df_dividends.fillna(0)
                 status = updateDividendsData(equitiesTable, df_dividends, DATABASE, ['datetime', 'ticker'])
                 if not status:
-                    print(f"\n==============\nTERMINATED: Exception at {ticker} during update dividends\n==============")
+                    print(
+                        f"\n==============\nTERMINATED: Exception at {ticker} during update dividends\n==============")
                     return False
-                df = df.dropna()  #drop na dividend rows
+                df = df.dropna()  # drop na dividend rows
             status = insertData(equitiesTable, df, DATABASE)
             time.sleep(0.25)
         if not status:
@@ -556,7 +591,7 @@ def update_portfolio_tickers(hold_ids, prev_hold_ids, t_type):
     # d = r.account.get_open_stock_positions()
     # df = pd.DataFrame.from_dict(d)
     current_tickers_df = getData(tickersTable, rows={'t_type': t_type})
-    if isinstance(current_tickers_df,pd.DataFrame):
+    if isinstance(current_tickers_df, pd.DataFrame):
         current_tickers_df['hold'] = current_tickers_df['id'].apply(
             lambda x: True if x in hold_ids else False)
     else:
@@ -609,7 +644,8 @@ def get_portfolio_data():
     watchlist_df = pd.DataFrame(np.setdiff1d(all_ids, hold_ids), columns=['id'])
     df = df.append(watchlist_df).reset_index(drop=True)
     print(f"\n==============\nEQUITIES WATCHLIST:\n{watchlist_df}\n==============")
-    df['ticker'] = df['id'].apply(lambda x: getData(tickersTable, rows={'id': x}, column='ticker'))
+    ticker_dict = getData(tickersTable, column='ticker,id').set_index('id').to_dict()['ticker']
+    df['ticker'] = df['id'].apply(lambda x: ticker_dict.get(x))
     df['latest_price'] = r.stocks.get_latest_price(list(df['ticker']), priceType=None, includeExtendedHours=True)
     df = df[['ticker', 'average_buy_price', 'quantity', 'latest_price']]
 
@@ -617,7 +653,7 @@ def get_portfolio_data():
     df = pd.concat([df, info_df], axis=1)
     df['prev_close_price'] = df['adjusted_previous_close']
     df['prev_close_unadjusted'] = df['previous_close']
-    df['datetime'] = pd.to_datetime(df['updated_at']).dt.tz_convert('US/Eastern')  #.dt.tz_localize(None)
+    df['datetime'] = pd.to_datetime(df['updated_at']).dt.tz_convert('US/Eastern')  # .dt.tz_localize(None)
     df['previous_close_date'] = pd.to_datetime(df['previous_close_date']).dt.date
 
     # convert type
@@ -652,7 +688,7 @@ def get_crypto_data():
     df = pd.DataFrame()
     crypto_df = pd.DataFrame(r.crypto.get_crypto_positions())
     df['id'] = crypto_df['currency'].apply(lambda x: x['id'])
-    df['datetime'] = datetime.now(tz=pytz.timezone('US/Eastern'))#.replace(tzinfo=None)
+    df['datetime'] = datetime.now(tz=pytz.timezone('US/Eastern'))  # .replace(tzinfo=None)
     df['name'] = crypto_df['currency'].apply(lambda x: x['name'])
     df['ticker'] = crypto_df['currency'].apply(lambda x: x['code'])
     df['average_buy_price'] = crypto_df['cost_bases'].apply(lambda x: x[0]['direct_cost_basis'])
@@ -740,7 +776,7 @@ def get_options_data():
 
 def get_portfolio_summary_data():
     d = {}
-    d['datetime'] = datetime.now(tz=pytz.timezone('US/Eastern'))#.replace(tzinfo=None)
+    d['datetime'] = datetime.now(tz=pytz.timezone('US/Eastern'))  # .replace(tzinfo=None)
     # d['datetime'] = pd.to_datetime(d['datetime'])
     d['username'] = 'sheryl'
 
@@ -761,6 +797,41 @@ def get_portfolio_summary_data():
     d['excess_maintenance'] = float(stock_portfolio['excess_maintenance'])
 
     return pd.DataFrame(d, index=[0])
+
+
+#### get all stock orders
+
+
+def get_orders_data():
+    d = r.orders.get_all_stock_orders()
+    df = pd.DataFrame.from_dict(d)
+    df['instrument_id'] = df['instrument'].apply(lambda x: x.split('/')[-2])
+
+    ticker_dict = getData(tickersTable, column='ticker,id').set_index('id').to_dict()['ticker']
+    df['ticker'] = df['instrument_id'].apply(lambda x: ticker_dict.get(x, np.NaN))
+    df['total_notional_amount'] = df['total_notional'].apply(lambda x: x['amount'] if x else None)
+    df['executed_notional_amount'] = df['executed_notional'].apply(lambda x: x['amount'] if x else None)
+    df['executions_price'] = df['executions'].apply(lambda x: x[0]['price'] if x else None)
+    df['executions_quantity'] = df['executions'].apply(lambda x: x[0]['quantity'] if x else None)
+
+    # datetime col will be converted by insertData function
+    df['datetime'] = pd.to_datetime(df['last_transaction_at']).dt.tz_convert('US/Eastern')
+
+    # custom datetime col needs to be converted here
+    # psycopg doesn't accept nan or nat, so convert to None
+    df['stop_triggered_at'] = pd.to_datetime(
+        df['stop_triggered_at']).dt.tz_convert(
+            'US/Eastern').dt.tz_convert('UTC').astype(object).where(df['stop_triggered_at'].notnull(), None)
+
+    selected_columns = ['ticker', 'datetime', 'side', 'type', 'time_in_force', 'state',
+                        'total_notional_amount', 'executed_notional_amount',
+                        'executions_price', 'executions_quantity', 'fees', 'extended_hours', 'trigger',
+                        'cumulative_quantity', 'quantity', 'average_price', 'price',
+                        'stop_price', 'stop_triggered_at',
+                        ]
+    df = df[selected_columns].sort_values('datetime')
+
+    return df
 
 
 #### insert portfolio data
@@ -796,6 +867,15 @@ def insert_portfolio_summary_data():
     status = insertData(portfolioSummaryTable, summary_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert portfolio summary data\n==============")
+        return False
+    return True
+
+
+def insert_orders_data():
+    orders_df = get_orders_data()
+    status = insertData(ordersTable, orders_df, DATABASE)
+    if not status:
+        print(f"==============\nTERMINATED: Exception at insert orders data\n==============")
         return False
     return True
 

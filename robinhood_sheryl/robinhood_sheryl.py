@@ -319,8 +319,8 @@ def yf_plot_moving_average(ticker, interval='1d', period='3mo', price_type='clos
                      ]
     marker_styles = []
     for color in marker_colors:
-        marker_up = dict(color=color['up'], size=10, symbol=5, line=dict(color='darkgreen', width=2))
-        marker_down = dict(color=color['down'], size=10, symbol=6, line=dict(color='maroon', width=2))
+        marker_up = dict(color=color['up'], size=9, symbol=5, line=dict(color='darkgreen', width=2))
+        marker_down = dict(color=color['down'], size=9, symbol=6, line=dict(color='maroon', width=2))
         marker_styles.append({'up': marker_up, 'down': marker_down})
 
     # Create figure with secondary y-axis
@@ -633,18 +633,56 @@ def rs_calc_agg_portfolio():
                    'total_gain', 'total_pct_gain', 'latest_price', ]]
 
 
-## graph portfolio
+#### get order info
 
 
-def rs_calculations(df,price_type,period, start_price=False):
-    if not start_price:
-        start_price = df[price_type].loc[~df[price_type].isnull()].iloc[0]
-    df[f'hold_{period}_gain'] = df[price_type]-start_price
-    df[f'hold_{period}_return'] = df[f'hold_{period}_gain']/start_price
+def rs_get_stock_orders(ticker=''):
+    if ticker:
+        df = getData(ordersTable, rows={'ticker': ticker})
+    else:
+        df = getData(ordersTable)
     return df
 
 
-def resample_backfill_calc(df, interval='5m', period='1mo', price_type='', extended_hours=False):
+def rs_get_pnl_summary(pnl='all'):
+    df = rs_get_stock_orders()
+    numerical_cols = ['total_notional_amount', 'executed_notional_amount',
+                      'executions_price', 'executions_quantity', 'fees',
+                      'cumulative_quantity', 'quantity', 'average_price', 'price',
+                      'stop_price']
+    df[numerical_cols] = df[numerical_cols].apply(pd.to_numeric)
+    df['cash_flow'] = df[['executed_notional_amount', 'side']].apply(
+        lambda x: x['executed_notional_amount'] if x['side'] == 'sell' else -x['executed_notional_amount'], axis=1)
+    selected_cols = ['ticker', 'cash_flow']
+    df = df[selected_cols].groupby('ticker').sum()
+
+    latest_price_df = getLatestData(portfolioTable, column='ticker,latest_price,quantity').set_index('ticker')
+    df = latest_price_df.join(df, how='left')
+    df['quantity'] = df['quantity'].fillna(0)
+    df['market_value'] = df['latest_price'] * df['quantity']
+    df['pnl'] = df['market_value'] + df['cash_flow']
+    df = df.sort_values('pnl', ascending=False)
+
+    if pnl == 'profit':
+        df = df[df['pnl'] > 0]
+    elif pnl == 'loss':
+        df = df[df['pnl'] <= 0].sort_values('pnl', ascending=True)
+    df.loc['Total'] = df[['cash_flow', 'market_value', 'pnl']].sum()
+    return df
+
+
+## graph portfolio
+
+
+def rs_calculations(df, price_type, period, start_price=False):
+    if not start_price:
+        start_price = df[price_type].loc[~df[price_type].isnull()].iloc[0]
+    df[f'hold_{period}_gain'] = df[price_type] - start_price
+    df[f'hold_{period}_return'] = df[f'hold_{period}_gain'] / start_price
+    return df
+
+
+def resample_backfill_calc(df, interval='5m', period='1mo', price_type='', extended_hours=False, backfill=True):
     start_date = str(convert_period(period).date())
 
     # reindex to fill in values for missing time periods
@@ -671,7 +709,10 @@ def resample_backfill_calc(df, interval='5m', period='1mo', price_type='', exten
 
     idx = pd.date_range(start_date, str(datetime.today()), freq=freq, tz='US/Eastern')
     df = df.reindex(idx, fill_value=np.NaN)
-    df = df.replace(to_replace=np.NaN, method='ffill')
+
+    if backfill:
+        df = df.replace(to_replace=np.NaN, method='ffill')
+
     df = df.between_time(interval_start_time, interval_end_time)
     df.index.name = 'datetime'
     if price_type:
@@ -793,12 +834,13 @@ def rs_plot_selection(tickers: [], interval='5m', period='1mo',
     df_quantity['start_price'] = df_agg.groupby(level=0).apply(lambda df: df['close'][~df['close'].isnull()].iloc[0])
     df_quantity['end_price'] = df_agg.groupby(level=0).apply(lambda df: df['close'].iloc[-1])
 
-    equal_weighted = False
-    # create equal weight portfolio if any ticker doesn't have existing quantity
-    if df_quantity['quantity'].isnull().any():
-        equal_weighted = True
-        num_tickers = df_quantity['end_price'].count()
-        df_quantity['quantity'] = df_quantity['start_price'].apply(lambda x: 100 / num_tickers / x)
+    #     equal_weighted = False
+    #     # create equal weight portfolio if any ticker doesn't have existing quantity
+    #     if df_quantity['quantity'].isnull().any():
+    # always equally weighted
+    equal_weighted = True
+    num_tickers = df_quantity['end_price'].count()
+    df_quantity['quantity'] = df_quantity['start_price'].apply(lambda x: 100 / num_tickers / x)
 
     quantity_dict = df_quantity['quantity'].to_dict()
 
@@ -818,10 +860,12 @@ def rs_plot_selection(tickers: [], interval='5m', period='1mo',
     title = f'<b>Total {df_sum[col_name][-1]:.2%}:</b> '
     df_quantity['weight'] = df_quantity[
                                 'quantity'] * df_quantity['end_price'] / sum(
-                                    df_quantity['quantity'] * df_quantity['end_price'])
+        df_quantity['quantity'] * df_quantity['end_price'])
     for ticker in df_quantity.index:
         weight = df_quantity.loc[ticker]['weight']
-        title += f'{ticker} ({weight:.2%}),'
+        df_ticker = df_agg.loc[ticker]
+        #         title += f'{ticker} ({weight:.2%}),'
+        title += f'{ticker} ({df_ticker[col_name][-1]:.2%}), '
 
     fig = rs_plot(df_sum, interval=interval, period=period,
                   primary_axis_type=primary_axis_type, secondary_axis_type=secondary_axis_type,
@@ -831,12 +875,13 @@ def rs_plot_selection(tickers: [], interval='5m', period='1mo',
 
     annotations = []
     for ticker in df_quantity.index:
+        weight = df_quantity.loc[ticker]['weight']
         df_ticker = df_agg.loc[ticker]
         # Add traces
         fig.add_trace(
             go.Scatter(x=df_ticker.index,
                        y=df_ticker[col_name],
-                       name=f'{ticker} {period} {df_ticker[col_name][-1]:.2%}',
+                       name=f'{ticker} {period} {weight:.2%}',
                        ),
             secondary_y=True,
         )
@@ -845,3 +890,53 @@ def rs_plot_selection(tickers: [], interval='5m', period='1mo',
     return fig
 
 
+def rs_plot_order_backtest(ticker, interval='1d', period='3mo', price_type='close',
+                           secondary_axis_type='return', windows=[20, 50], signals={'sma': (20, 50)},
+                           long_only=False, extended_hours=False):
+    fig = yf_plot_backtest(ticker=ticker,
+                           interval=interval,
+                           period=period,
+                           price_type=price_type,
+                           secondary_axis_type=secondary_axis_type,
+                           windows=windows,
+                           signals=signals,
+                           long_only=long_only,
+                           extended_hours=False)  # only use market hour data for backtesting
+
+    ticker_df = rs_get_stock_orders(ticker=ticker)
+    markers_df = resample_backfill_calc(ticker_df, interval=interval, period=period,
+                                        price_type='', extended_hours=extended_hours, backfill=False)
+    markers_df.dropna(axis=0, how='all', inplace=True)
+    #     print(markers_df)
+
+    marker_colors = [{'up': 'lawngreen', 'down': 'orangered'},
+                     #                      {'up': 'deepskyblue', 'down': 'orange'},
+                     ]
+    marker_styles = []
+    for color in marker_colors:
+        marker_up = dict(color=color['up'], size=11, symbol=3, line=dict(color='darkgreen', width=1))
+        marker_down = dict(color=color['down'], size=11, symbol=4, line=dict(color='maroon', width=1))
+        marker_styles.append({'up': marker_up, 'down': marker_down})
+
+    fig.update_traces(cliponaxis=True, selector=dict(type='scatter'))
+    # add trace for buy and sell
+    fig.add_trace(
+        go.Scatter(x=markers_df.index, y=np.where(markers_df['side'] == 'buy', markers_df['executions_price'], np.nan),
+                   name=f'bought',
+                   mode='markers',
+                   marker=marker_styles[0]['up'],
+                   ),
+
+        secondary_y=False,
+
+    )
+    fig.add_trace(
+        go.Scatter(x=markers_df.index, y=np.where(markers_df['side'] == 'sell', markers_df['executions_price'], np.nan),
+                   name=f'sold',
+                   mode='markers',
+                   marker=marker_styles[0]['down'],
+                   ),
+
+        secondary_y=False,
+    )
+    return fig
