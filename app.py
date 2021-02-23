@@ -17,6 +17,9 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 server = app.server
 
+WIN1=20
+WIN2=50
+
 
 def get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
                             windows=[20, 50], signals={'ema': (20, 50)}, long_only=False, extended_hours=False):
@@ -487,14 +490,18 @@ def set_app_layout(df):
 
 @app.callback(
     Output('table', 'data'),
-    [Input('interval-component', 'n_intervals')])
-def generate_table(n):
+    [Input('interval-component', 'n_intervals'),
+     Input('radio_1', 'value'),
+     Input('radio_2', 'value'),
+     Input('radio_3', 'value'),
+     ])
+def generate_table(n, radio_period, radio_interval, radio_type):
     print('updating portfolio analytics table...')
     #     cols_list = ['average_buy_price','quantity','day_gain','pct_change','total_gain','total_pct_gain']
     #     holdings_df[cols_list] = holdings_df[cols_list].apply(lambda x: random.uniform(-2,2)*x ,axis=1)
     #     pa_df = pd.concat([holdings_df,holdings_df.apply(yf_backtest_wrapper,axis=1)],axis=1)
-    pa_df = get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
-                                    windows=[20, 50], signals={'ema': (20, 50)}, long_only=False, extended_hours=False)
+    pa_df = get_portfolio_analytics(interval=radio_interval, period=radio_period, price_type='close',
+                                    windows=[WIN1, WIN2], signals={'ema': (WIN1, WIN2)}, long_only=False, extended_hours=False)
     return pa_df.to_dict('records')
 
 
@@ -625,8 +632,8 @@ def update_graphs(rows, derived_virtual_selected_rows, radio_period, radio_inter
             fig = yf_plot_moving_average(ticker,
                                          interval=radio_interval,
                                          period=radio_period,
-                                         windows=[20, 50],
-                                         signals={'ema': (20, 50)},
+                                         windows=[WIN1, WIN2],
+                                         signals={'ema': (WIN1, WIN2)},
                                          bband=False,
                                          extended_hours=extended_hours)
         else:
@@ -634,8 +641,8 @@ def update_graphs(rows, derived_virtual_selected_rows, radio_period, radio_inter
                                          interval=radio_interval,
                                          period=radio_period,
                                          price_type='close',
-                                         windows=[20, 50],
-                                         signals={'ema': (20, 50)},
+                                         windows=[WIN1, WIN2],
+                                         signals={'ema': (WIN1, WIN2)},
                                          secondary_axis_type='return',
                                          long_only=False,
                                          extended_hours=extended_hours)  # backtest portion always excludes extended hrs
@@ -673,7 +680,8 @@ def update_styles(rows, derived_virtual_selected_rows):
 
 if __name__ == '__main__':
     print('generating initial portfolio analytics df...')
-    pa_df = get_portfolio_analytics()
+    pa_df = get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
+                                    windows=[WIN1, WIN2], signals={'ema': (WIN1, WIN2)}, long_only=False, extended_hours=False)
     if pa_df is False:
         print("Please check IP address and/or firewall")
     else:

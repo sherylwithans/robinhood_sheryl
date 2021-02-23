@@ -6,7 +6,8 @@ if __name__ == "__main__":
     login()  # location of robinhood login pickle file
     # # insert_yf_data()
     insert_orders_data()
+    # print(getLatestData(ordersTable))
     # initTables()
-    # print(getLatestData(equitiesTable))
+
     # insert_portfolio_data()
     # print(pd.isnull(None))
