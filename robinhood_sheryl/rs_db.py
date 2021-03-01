@@ -108,7 +108,7 @@ class equitiesTable(Base):
 class tickersTable(Base):
     __tablename__ = 'tickers'
 
-    ticker = Column(Text, primary_key=True)
+    ticker = Column(Text)
     t_type = Column(Text, primary_key=True)
     id = Column(Text, primary_key=True)
     name = Column(Text)
@@ -303,7 +303,7 @@ def getColumns(table):
 
 def getData(table, rows={}, column='*', tickers=[], start_date='', end_date='',
             extended_hours=False, market_hours=('09:30', '15:59:59'), timezone='US/Eastern'):
-    has_datetime = table.__tablename__ in ['equities', 'portfolio', 'portfolio_summary','orders']
+    has_datetime = table.__tablename__ in ['equities', 'portfolio', 'portfolio_summary', 'orders']
 
     query = f" SELECT {column} FROM {table.__tablename__} WHERE TRUE "
 
@@ -615,13 +615,36 @@ def update_portfolio_tickers(hold_ids, prev_hold_ids, t_type):
 
     tickers_df = pd.concat([tickers_df, current_tickers_df]).drop_duplicates().reset_index(drop=True)
     print(f"\n==============\nTOTAL WATCHLIST:\n{tickers_df[tickers_df['hold'] == False]}\n==============")
-    status = updateData(tickersTable, tickers_df, DATABASE, ['ticker', 't_type', 'id'])
+    status = updateData(tickersTable, tickers_df, DATABASE, ['t_type', 'id'])
 
     if not status:
         print(f"\n==============\nTERMINATED: Exception at insert portfolio tickers\n==============")
         return False
 
     return tickers_df[['id', 'ticker', 'name']]
+
+
+def filter_portfolio_ticker_symbols(df, t_type='equity'):
+    print("UPDATE REQUIRED: ticker symbol renaming")
+    current_tickers_df = getData(tickersTable, rows={'t_type': t_type})
+
+    new_tickers_df = current_tickers_df.copy()
+    new_tickers_df['new_ticker'] = new_tickers_df['id'].apply(
+        lambda x: r.stocks.get_stock_quote_by_id(x, info='symbol'))
+    changed_tickers_df = new_tickers_df[new_tickers_df['new_ticker'].isnull()]
+    print(f"\n==============\nTICKER CHANGE REQUIRED FOR:\n{changed_tickers_df}\n==============")
+
+    # mark ticker as invalid in tickers table
+    df_to_update = current_tickers_df[current_tickers_df['ticker'].isin(list(changed_tickers_df['ticker']))]
+    df_to_update['ticker'] = df_to_update['ticker'].apply(lambda x: 'INVALID: '+x)
+    df_to_update = df_to_update[['ticker','t_type','id']]
+    status = updateData(tickersTable, df_to_update, DATABASE, ['t_type', 'id'])
+    if not status:
+        print(f"\n==============\nTERMINATED: Exception at filter_portfolio_ticker_symbols\n==============")
+        return False
+
+    df = df[~df['ticker'].isin(list(changed_tickers_df['ticker']))]
+    return df
 
 
 #### get portfolio data
@@ -646,7 +669,16 @@ def get_portfolio_data():
     print(f"\n==============\nEQUITIES WATCHLIST:\n{watchlist_df}\n==============")
     ticker_dict = getData(tickersTable, column='ticker,id').set_index('id').to_dict()['ticker']
     df['ticker'] = df['id'].apply(lambda x: ticker_dict.get(x))
-    df['latest_price'] = r.stocks.get_latest_price(list(df['ticker']), priceType=None, includeExtendedHours=True)
+    latest_prices = r.stocks.get_latest_price(list(df['ticker']), priceType=None, includeExtendedHours=True)
+    if len(latest_prices) != len(df):
+        # some tickers in df['ticker'] don't have latest price, may be change in ticker symbol
+        df = filter_portfolio_ticker_symbols(df, t_type='equity')
+
+    if not isinstance(df,pd.DataFrame):
+        # error in filter portfolio ticker symbols
+        return False
+
+    df['latest_price'] = latest_prices
     df = df[['ticker', 'average_buy_price', 'quantity', 'latest_price']]
 
     info_df = pd.DataFrame(r.stocks.get_quotes(list(df['ticker'])))
@@ -821,7 +853,7 @@ def get_orders_data():
     # psycopg doesn't accept nan or nat, so convert to None
     df['stop_triggered_at'] = pd.to_datetime(
         df['stop_triggered_at']).dt.tz_convert(
-            'US/Eastern').dt.tz_convert('UTC').astype(object).where(df['stop_triggered_at'].notnull(), None)
+        'US/Eastern').dt.tz_convert('UTC').astype(object).where(df['stop_triggered_at'].notnull(), None)
 
     selected_columns = ['ticker', 'datetime', 'side', 'type', 'time_in_force', 'state',
                         'total_notional_amount', 'executed_notional_amount',
