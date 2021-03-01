@@ -636,8 +636,8 @@ def filter_portfolio_ticker_symbols(df, t_type='equity'):
 
     # mark ticker as invalid in tickers table
     df_to_update = current_tickers_df[current_tickers_df['ticker'].isin(list(changed_tickers_df['ticker']))]
-    df_to_update['ticker'] = df_to_update['ticker'].apply(lambda x: 'INVALID: '+x)
-    df_to_update = df_to_update[['ticker','t_type','id']]
+    df_to_update['name'] = df_to_update['name'].apply(lambda x: 'INVALID: '+x)
+    df_to_update = df_to_update[['ticker','name','t_type','id']]
     status = updateData(tickersTable, df_to_update, DATABASE, ['t_type', 'id'])
     if not status:
         print(f"\n==============\nTERMINATED: Exception at filter_portfolio_ticker_symbols\n==============")
