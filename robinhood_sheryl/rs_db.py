@@ -636,8 +636,8 @@ def filter_portfolio_ticker_symbols(df, t_type='equity'):
 
     # mark ticker as invalid in tickers table
     df_to_update = current_tickers_df[current_tickers_df['ticker'].isin(list(changed_tickers_df['ticker']))]
-    df_to_update['name'] = df_to_update['name'].apply(lambda x: 'INVALID: '+str(x))
-    df_to_update = df_to_update[['ticker','name','t_type','id']]
+    df_to_update['name'] = df_to_update['name'].apply(lambda x: 'INVALID: ' + str(x))
+    df_to_update = df_to_update[['ticker', 'name', 't_type', 'id']]
     status = updateData(tickersTable, df_to_update, DATABASE, ['t_type', 'id'])
     if not status:
         print(f"\n==============\nTERMINATED: Exception at filter_portfolio_ticker_symbols\n==============")
@@ -645,6 +645,43 @@ def filter_portfolio_ticker_symbols(df, t_type='equity'):
 
     df = df[~df['ticker'].isin(list(changed_tickers_df['ticker']))]
     return df
+
+
+def update_portfolio_ticker_symbols(old_ticker, new_ticker, t_type='equity'):
+    old_ticker_info = getData(tickersTable, rows={'ticker': old_ticker})
+    new_ticker_info = r.stocks.get_instruments_by_symbols(new_ticker)[0]
+
+    d = {'ticker': new_ticker,
+         'id': new_ticker_info['id'],
+         'name': new_ticker_info['name'] + f'(formerly {old_ticker})',
+         't_type': t_type,
+         'hold': True if old_ticker_info['hold'].iloc[0] == 't' else False,
+         }
+    # d['hold'] = False
+
+    # add new_ticker to tickers table
+    new_ticker_df = pd.DataFrame.from_dict([d])
+    insertData(tickersTable, new_ticker_df, DATABASE)
+
+    # remove old ticker from tickers table
+    deleteRow(tickersTable, row='ticker', value=old_ticker, db_name=DATABASE, t_type='equity', dryrun=False)
+
+    # update historical prices using old ticker
+    executeQuery(f"""
+        UPDATE equities
+        SET ticker = '{new_ticker}'
+        WHERE ticker = '{old_ticker}'
+        RETURNING 1
+    """)
+
+    executeQuery(f"""
+            UPDATE portfolio
+            SET ticker = '{new_ticker}'
+            WHERE ticker = '{old_ticker}'
+            RETURNING 1
+        """)
+
+    return True
 
 
 #### get portfolio data
@@ -674,7 +711,7 @@ def get_portfolio_data():
         # some tickers in df['ticker'] don't have latest price, may be change in ticker symbol
         df = filter_portfolio_ticker_symbols(df, t_type='equity')
 
-    if not isinstance(df,pd.DataFrame):
+    if not isinstance(df, pd.DataFrame):
         # error in filter portfolio ticker symbols
         return False
 

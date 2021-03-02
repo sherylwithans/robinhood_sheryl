@@ -7,8 +7,9 @@ if __name__ == "__main__":
     # # insert_yf_data()
     # insert_orders_data()
     # print(getLatestData(ordersTable))
-    portfolio_df = get_portfolio_data()
+    # portfolio_df = get_portfolio_data()
     # df = getData(tickersTable)
+    update_portfolio_ticker_symbols('SBE','CHPT')
 
     # print(df[df['ticker']=='CHPT'])
     # initTables()
