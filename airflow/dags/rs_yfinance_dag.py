@@ -29,7 +29,7 @@ default_args = {
 }
 
 dag = DAG(
-    'dag_insert_yf_data', default_args=default_args, schedule_interval="*/5 8-19 * * 1-5", catchup=False,
+    'dag_insert_yf_data', default_args=default_args, schedule_interval="0 8-19 * * 1-5", catchup=False,
     )
 
 process_dag = PythonOperator(

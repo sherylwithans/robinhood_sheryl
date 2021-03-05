@@ -18,7 +18,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
 
 WIN1=20
-WIN2=50
+WIN2=200
 
 
 def get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
