@@ -636,14 +636,23 @@ def filter_portfolio_ticker_symbols(df, t_type='equity'):
 
     # mark ticker as invalid in tickers table
     df_to_update = current_tickers_df[current_tickers_df['ticker'].isin(list(changed_tickers_df['ticker']))]
-    df_to_update['name'] = df_to_update['name'].apply(lambda x: 'INVALID: ' + str(x))
-    df_to_update = df_to_update[['ticker', 'name', 't_type', 'id']]
-    status = updateData(tickersTable, df_to_update, DATABASE, ['t_type', 'id'])
+
+    # filter for tickers that haven't been marked as invalid
+    df_to_update = df_to_update[~df_to_update['name'].str.contains('INVALID')]
+
+    # update tickers db if ticker is not marked as invalid yet
+    status = True
+    if not df_to_update.empty:
+        df_to_update = df_to_update[['ticker', 'name', 't_type', 'id']]
+        df_to_update['name'] = df_to_update['name'].apply(lambda x: 'INVALID: ' + str(x))
+        status = updateData(tickersTable, df_to_update, DATABASE, ['t_type', 'id'])
+
     if not status:
         print(f"\n==============\nTERMINATED: Exception at filter_portfolio_ticker_symbols\n==============")
         return False
 
-    df = df[~df['ticker'].isin(list(changed_tickers_df['ticker']))]
+    # reset index so skipped tickers index are continuous
+    df = df[~df['ticker'].isin(list(changed_tickers_df['ticker']))].reset_index()
     return df
 
 
@@ -909,6 +918,7 @@ def insert_portfolio_data():
     status = insertData(portfolioTable, portfolio_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert portfolio data\n==============")
+        raise ValueError
         return False
     return True
 
@@ -918,6 +928,7 @@ def insert_crypto_data():
     status = insertData(cryptoTable, crypto_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert crypto data\n==============")
+        raise ValueError
         return False
     return True
 
@@ -927,6 +938,7 @@ def insert_options_data():
     status = insertData(optionsTable, options_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert options data\n==============")
+        raise ValueError
         return False
     return True
 
@@ -936,6 +948,7 @@ def insert_portfolio_summary_data():
     status = insertData(portfolioSummaryTable, summary_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert portfolio summary data\n==============")
+        raise ValueError
         return False
     return True
 
@@ -945,6 +958,7 @@ def insert_orders_data():
     status = insertData(ordersTable, orders_df, DATABASE)
     if not status:
         print(f"==============\nTERMINATED: Exception at insert orders data\n==============")
+        raise ValueError
         return False
     return True
 
