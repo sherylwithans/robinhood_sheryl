@@ -532,7 +532,7 @@ def get_yf_data(ticker, start_date):
 
 #### insert yfinance data
 
-def insert_yf_data(tickers_list=None, catchup=False, print_details=False):
+def insert_yf_data(tickers_list=None, catchup=False, print_details=True):
     if tickers_list is None:
         tickers_list = getData(tickersTable, column='ticker')
         tickers_list = list(set(tickers_list))
