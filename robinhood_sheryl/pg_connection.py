@@ -6,19 +6,24 @@ import logging
 
 logger = logging.getLogger()
 
-# update external ip to run dashboard on local machine
-if os.path.exists("cloud_vm"):
-    from cloud_vm.gc_instance_update import list_instances
+# get executing environment cloud or local
+ENV = os.environ.get("DB_ENV")
+if ENV == 'local':
+    os.environ['DB_HOST'] = '127.0.0.1:5432'
+else:
+    # update external ip to run dashboard on local machine
+    if os.path.exists("cloud_vm"):
+        from cloud_vm.gc_instance_update import list_instances
 
-    GC_INSTANCE = os.environ.get("GC_INSTANCE")
-    loc_ip, loc_port = os.environ.get("DB_HOST").split(":")
-    gc_int_ip = list_instances(GC_INSTANCE, get_int_ip=True)
-    if loc_ip != gc_int_ip:
-        new_ext_ip = list_instances(GC_INSTANCE, get_ext_ip=True) + ':' + loc_port
-        print(f"updating IP: {os.environ['DB_HOST']} to {new_ext_ip}")
-        os.environ['DB_HOST'] = new_ext_ip
-    else:
-        print(f"latest IP already up to date, no update necessary")
+        GC_INSTANCE = os.environ.get("GC_INSTANCE")
+        loc_ip, loc_port = os.environ.get("DB_HOST").split(":")
+        gc_int_ip = list_instances(GC_INSTANCE, get_int_ip=True)
+        if loc_ip != gc_int_ip:
+            new_ext_ip = list_instances(GC_INSTANCE, get_ext_ip=True) + ':' + loc_port
+            print(f"updating IP: {os.environ['DB_HOST']} to {new_ext_ip}")
+            os.environ['DB_HOST'] = new_ext_ip
+        else:
+            print(f"latest IP already up to date, no update necessary")
 
 
 def init_connection_engine():
