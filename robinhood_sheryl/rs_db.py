@@ -240,6 +240,7 @@ def read_sql_inmem_uncompressed(query, db_engine):
         store.seek(0)
         df = pd.read_csv(store)
         cur.close()
+        raw_conn.commit()
         raw_conn.close()
         return df
     except Exception as e:
@@ -259,6 +260,7 @@ def read_sql_tmpfile(query, db_engine):
             tmpfile.seek(0)
             df = pd.read_csv(tmpfile)
             cur.close()
+            raw_conn.commit()
             raw_conn.close()
             return df
     except Exception as e:
@@ -509,6 +511,7 @@ def deleteRow(table, row, value, db_name, t_type='equity', dryrun=True):
 #### get yfinance data and read tickers
 
 def get_yf_data(ticker, start_date):
+    print(ticker)
     stock = yf.Ticker(ticker)
     # df = stock.history(period='ytd', prepost=True)
     if start_date:
@@ -676,13 +679,14 @@ def update_portfolio_ticker_symbols(old_ticker, new_ticker, t_type='equity'):
     deleteRow(tickersTable, row='ticker', value=old_ticker, db_name=DATABASE, t_type='equity', dryrun=False)
 
     # update historical prices using old ticker
+    print(f"\n==============\nUPDATING: historical tickers in equities table\n==============")
     executeQuery(f"""
         UPDATE equities
         SET ticker = '{new_ticker}'
         WHERE ticker = '{old_ticker}'
         RETURNING 1
     """)
-
+    print(f"\n==============\nUPDATING: historical tickers in portfolio table\n==============")
     executeQuery(f"""
             UPDATE portfolio
             SET ticker = '{new_ticker}'
