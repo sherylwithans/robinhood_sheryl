@@ -17,8 +17,8 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 server = app.server
 
-WIN1=20
-WIN2=200
+WIN1 = 20
+WIN2 = 200
 
 
 def get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
@@ -501,7 +501,8 @@ def generate_table(n, radio_period, radio_interval, radio_type):
     #     holdings_df[cols_list] = holdings_df[cols_list].apply(lambda x: random.uniform(-2,2)*x ,axis=1)
     #     pa_df = pd.concat([holdings_df,holdings_df.apply(yf_backtest_wrapper,axis=1)],axis=1)
     pa_df = get_portfolio_analytics(interval=radio_interval, period=radio_period, price_type='close',
-                                    windows=[WIN1, WIN2], signals={'ema': (WIN1, WIN2)}, long_only=False, extended_hours=False)
+                                    windows=[WIN1, WIN2], signals={'ema': (WIN1, WIN2)}, long_only=False,
+                                    extended_hours=False)
     return pa_df.to_dict('records')
 
 
@@ -681,11 +682,13 @@ def update_styles(rows, derived_virtual_selected_rows):
 if __name__ == '__main__':
     print('generating initial portfolio analytics df...')
     pa_df = get_portfolio_analytics(interval='5m', period='1mo', price_type='close',
-                                    windows=[WIN1, WIN2], signals={'ema': (WIN1, WIN2)}, long_only=False, extended_hours=False)
+                                    windows=[WIN1, WIN2], signals={'ema': (WIN1, WIN2)}, long_only=False,
+                                    extended_hours=False)
     if pa_df is False:
         print("Please check IP address and/or firewall")
     else:
         print('generating initial stock order history df...')
-        orders_df = rs_get_stock_orders()
+        # orders_df = rs_get_stock_orders()
+        # insert_orders_data()
         set_app_layout(pa_df)
         app.run_server(debug=True, port=8050)
