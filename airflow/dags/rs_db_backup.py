@@ -36,4 +36,4 @@ process_dag = BashOperator(
     task_id='dag_db_backup',
     bash_command=f'pg_dump -h {db_hostname} -U postgres prod > {SYS_DIR}prod_dump.sql && gsutil cp {SYS_DIR}prod_dump.sql gs://quantwannadb/',
     dag=dag,
-    execution_timeout=timedelta(seconds=300))
+    execution_timeout=timedelta(seconds=1000))
