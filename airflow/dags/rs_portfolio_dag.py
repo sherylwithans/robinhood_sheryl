@@ -33,7 +33,7 @@ login()  # custom robinhood login function
 dag = DAG(
     'dag_insert_portfolio_data',
     default_args=default_args,
-    schedule_interval="*/2 8-19 * * 1-5",
+    schedule_interval="*/5 8-19 * * 1-5",
     catchup=False,
 )
 
