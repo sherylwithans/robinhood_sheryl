@@ -2,7 +2,6 @@ airflow/logs/
 airflow/*.*
 big_query/
 cloud_sql/
-cloud_vm/
 templates/
 venv/
 .ipynb_checkpoints/
