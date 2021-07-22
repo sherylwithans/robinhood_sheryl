@@ -10,8 +10,8 @@ import os
 
 credentials = GoogleCredentials.get_application_default()
 GCE_SERVICE = discovery.build('compute', 'v1', credentials=credentials, cache_discovery=False)
-PROJECT = 'quantwannabe'  # TODO: Update placeholder value.
-ZONE = 'us-central1-c'
+PROJECT = os.environ.get("GC_PROJECT")  # TODO: Update placeholder value.
+ZONE = os.environ.get("GC_ZONE")
 
 
 def list_instances(instance='all', print_all=False, get_ext_ip=False, get_int_ip=False):
