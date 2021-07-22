@@ -12,7 +12,7 @@ if ENV == 'local':
     os.environ['DB_HOST'] = '127.0.0.1:5432'
 else:
     # update external ip to run dashboard on local machine
-    if os.path.exists("cloud_vm"):
+    if ENV == 'windows':
         from cloud_vm.gc_instance_update import list_instances
 
         GC_INSTANCE = os.environ.get("GC_INSTANCE")
