@@ -29,7 +29,7 @@ default_args = {
 }
 
 dag = DAG(
-    'dag_db_backup', default_args=default_args, schedule_interval="5 20 * * 1-5", catchup=False,
+    'dag_db_backup', default_args=default_args, schedule_interval="5 19 * * 1-5", catchup=False,
     )
 
 process_dag = BashOperator(
